@@ -1,0 +1,37 @@
+# OSX
+.DS_Store
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# React Native
+.expo/
+.expo-shared/
+
+# Android
+android/app/build/
+android/.gradle/
+*.apk
+*.aab
+
+# iOS
+ios/Pods/
+ios/build/
+*.ipa
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Keystore
+*.jks
+*.keystore
