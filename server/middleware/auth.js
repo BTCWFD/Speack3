@@ -14,11 +14,14 @@ const auth = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         // Find user
-        const user = await User.findById(decoded.userId).select('-password');
+        const user = await User.findById(decoded.userId);
 
         if (!user) {
             return res.status(401).json({ error: 'User not found' });
         }
+
+        // Sanitize user object
+        delete user.password;
 
         // Add user to request
         req.user = user;

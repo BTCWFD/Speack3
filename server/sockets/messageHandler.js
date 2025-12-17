@@ -41,7 +41,7 @@ const setupSocketHandlers = (io) => {
         User.findByIdAndUpdate(socket.userId, {
             online: true,
             lastSeen: new Date()
-        }).exec();
+        });
 
         // Emit user online to all contacts
         socket.broadcast.emit('user:online', {
@@ -58,16 +58,13 @@ const setupSocketHandlers = (io) => {
                 const { recipientId, encryptedContent } = data;
 
                 // Save message to database
-                const message = new Message({
+                const message = await Message.create({
                     sender: socket.userId,
                     recipient: recipientId,
                     encryptedContent,
                     messageType: 'direct',
                     delivered: false
                 });
-
-                await message.save();
-                await message.populate('sender', 'username');
 
                 // Check if recipient is online
                 const recipientSocketId = activeUsers.get(recipientId);
@@ -86,9 +83,10 @@ const setupSocketHandlers = (io) => {
                     });
 
                     // Update delivery status
-                    message.delivered = true;
-                    message.deliveredAt = new Date();
-                    await message.save();
+                    await Message.findByIdAndUpdate(message._id, { 
+                        delivered: true, 
+                        deliveredAt: new Date() 
+                    });
 
                     // Send delivery confirmation to sender
                     socket.emit('message:delivered', {
@@ -137,15 +135,12 @@ const setupSocketHandlers = (io) => {
                 }
 
                 // Save message
-                const message = new Message({
+                const message = await Message.create({
                     sender: socket.userId,
                     group: groupId,
                     encryptedContent,
                     messageType: 'group'
                 });
-
-                await message.save();
-                await message.populate('sender', 'username');
 
                 // Send to all group members
                 group.members.forEach(memberId => {
@@ -214,14 +209,15 @@ const setupSocketHandlers = (io) => {
                 const message = await Message.findById(messageId);
 
                 if (message && message.recipient?.toString() === socket.userId) {
-                    message.read = true;
-                    message.readAt = new Date();
-                    await message.save();
+                    const updatedMessage = await Message.findByIdAndUpdate(messageId, {
+                        read: true,
+                        readAt: new Date()
+                    });
 
                     // Notify sender
                     io.to(`user:${message.sender.toString()}`).emit('message:read', {
                         messageId,
-                        readAt: message.readAt
+                        readAt: updatedMessage.readAt
                     });
                 }
             } catch (error) {

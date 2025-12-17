@@ -21,19 +21,18 @@ router.post('/', [
         const { name, description, members } = req.body;
 
         // Create group
-        const group = new Group({
+        const groupData = {
             name,
             description,
             admin: req.userId,
             members: [...new Set([req.userId, ...members])] // Remove duplicates
-        });
+        };
 
-        await group.save();
-        await group.populate('members', 'username email');
+        const newGroup = await Group.create(groupData);
 
         res.status(201).json({
             message: 'Group created successfully',
-            group
+            group: newGroup
         });
     } catch (error) {
         console.error('Create group error:', error);
@@ -48,10 +47,7 @@ router.get('/', auth, async (req, res) => {
     try {
         const groups = await Group.find({
             members: req.userId
-        })
-            .populate('admin', 'username email')
-            .populate('members', 'username email online')
-            .sort({ updatedAt: -1 });
+        });
 
         res.json({ groups });
     } catch (error) {
@@ -65,16 +61,14 @@ router.get('/', auth, async (req, res) => {
 // @access  Private
 router.get('/:id', auth, async (req, res) => {
     try {
-        const group = await Group.findById(req.params.id)
-            .populate('admin', 'username email')
-            .populate('members', 'username email online identityKeyPublic registrationId');
+        const group = await Group.findById(req.params.id);
 
         if (!group) {
             return res.status(404).json({ error: 'Group not found' });
         }
 
         // Check if user is member
-        if (!group.members.find(m => m._id.toString() === req.userId)) {
+        if (!group.members.includes(req.userId)) {
             return res.status(403).json({ error: 'Not a member of this group' });
         }
 
@@ -115,18 +109,13 @@ router.put('/:id/members', [
         const { members } = req.body;
 
         // Add new members
-        members.forEach(memberId => {
-            if (!group.members.includes(memberId)) {
-                group.members.push(memberId);
-            }
+        const updatedGroup = await Group.findByIdAndUpdate(req.params.id, {
+            $addToSet: { members: { $each: members } }
         });
-
-        await group.save();
-        await group.populate('members', 'username email');
 
         res.json({
             message: 'Members added successfully',
-            group
+            group: updatedGroup
         });
     } catch (error) {
         console.error('Add members error:', error);
@@ -156,11 +145,9 @@ router.delete('/:id/members/:memberId', auth, async (req, res) => {
         }
 
         // Remove member
-        group.members = group.members.filter(
-            m => m.toString() !== req.params.memberId
-        );
-
-        await group.save();
+        await Group.findByIdAndUpdate(req.params.id, {
+            $pull: { members: req.params.memberId }
+        });
 
         res.json({ message: 'Member removed successfully' });
     } catch (error) {
@@ -185,7 +172,7 @@ router.delete('/:id', auth, async (req, res) => {
             return res.status(403).json({ error: 'Only admin can delete group' });
         }
 
-        await group.deleteOne();
+        await Group.deleteOne({ _id: req.params.id });
 
         res.json({ message: 'Group deleted successfully' });
     } catch (error) {

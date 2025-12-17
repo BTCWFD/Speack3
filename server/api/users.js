@@ -8,9 +8,18 @@ const User = require('../models/User');
 // @access  Private
 router.get('/', auth, async (req, res) => {
     try {
-        const users = await User.find({ _id: { $ne: req.userId } })
-            .select('username email online lastSeen identityKeyPublic registrationId')
-            .limit(100);
+        const rawUsers = await User.find({ _id: { $ne: req.userId } }, { limit: 100 });
+
+        // Manually select fields to avoid leaking sensitive data
+        const users = rawUsers.map(u => ({
+            _id: u._id,
+            username: u.username,
+            email: u.email,
+            online: u.online,
+            lastSeen: u.lastSeen,
+            identityKeyPublic: u.identityKeyPublic,
+            registrationId: u.registrationId
+        }));
 
         res.json({ users });
     } catch (error) {
@@ -24,14 +33,24 @@ router.get('/', auth, async (req, res) => {
 // @access  Private
 router.get('/:id', auth, async (req, res) => {
     try {
-        const user = await User.findById(req.params.id)
-            .select('username email online lastSeen identityKeyPublic registrationId preKeys signedPreKey');
+        const user = await User.findById(req.params.id);
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({ user });
+        // Manually select fields to return
+        const publicUser = {
+            _id: user._id,
+            username: user.username,
+            email: user.email,
+            online: user.online,
+            lastSeen: user.lastSeen,
+            identityKeyPublic: user.identityKeyPublic,
+            registrationId: user.registrationId
+        };
+
+        res.json({ user: publicUser });
     } catch (error) {
         console.error('Get user error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -43,24 +62,25 @@ router.get('/:id', auth, async (req, res) => {
 // @access  Private
 router.get('/:id/prekeys', auth, async (req, res) => {
     try {
-        const user = await User.findById(req.params.id)
-            .select('identityKeyPublic registrationId preKeys signedPreKey');
+        const user = await User.findById(req.params.id);
 
         if (!user) {
             return res.status(404).json({ error: 'User not found' });
         }
 
-        // Get one prekey (remove it from DB after use)
-        const preKey = user.preKeys.length > 0 ? user.preKeys.shift() : null;
+        const preKey = user.preKeys && user.preKeys.length > 0 ? user.preKeys[0] : null;
 
         if (preKey) {
-            await user.save();
+            // Atomically remove the used pre-key from the database
+            await User.findByIdAndUpdate(req.params.id, {
+                $pull: { preKeys: { keyId: preKey.keyId } }
+            });
         }
 
         res.json({
             identityKeyPublic: user.identityKeyPublic,
             registrationId: user.registrationId,
-            preKey,
+            preKey: preKey, // The single-use prekey
             signedPreKey: user.signedPreKey
         });
     } catch (error) {
@@ -76,15 +96,14 @@ router.post('/prekeys', auth, async (req, res) => {
     try {
         const { preKeys } = req.body;
 
-        if (!preKeys || !Array.isArray(preKeys)) {
+        if (!preKeys || !Array.isArray(preKeys) || preKeys.length === 0) {
             return res.status(400).json({ error: 'Invalid prekeys format' });
         }
 
-        const user = await User.findById(req.userId);
-
-        // Add new prekeys
-        user.preKeys = [...user.preKeys, ...preKeys];
-        await user.save();
+        // Add new prekeys atomically
+        await User.findByIdAndUpdate(req.userId, {
+            $addToSet: { preKeys: { $each: preKeys } }
+        });
 
         res.json({ message: 'PreKeys uploaded successfully' });
     } catch (error) {

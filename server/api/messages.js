@@ -13,18 +13,20 @@ router.get('/direct/:userId', auth, async (req, res) => {
         const limit = parseInt(req.query.limit) || 50;
         const skip = parseInt(req.query.skip) || 0;
 
-        const messages = await Message.find({
+        const query = {
             messageType: 'direct',
             $or: [
                 { sender: req.userId, recipient: userId },
                 { sender: userId, recipient: req.userId }
             ]
-        })
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .skip(skip)
-            .populate('sender', 'username')
-            .populate('recipient', 'username');
+        };
+        const options = {
+            sort: { createdAt: -1 },
+            limit,
+            skip
+        };
+
+        const messages = await Message.find(query, options);
 
         res.json({ messages: messages.reverse() }); // Oldest first
     } catch (error) {
@@ -48,14 +50,17 @@ router.get('/group/:groupId', auth, async (req, res) => {
             return res.status(403).json({ error: 'Not a member of this group' });
         }
 
-        const messages = await Message.find({
+        const query = {
             messageType: 'group',
             group: groupId
-        })
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .skip(skip)
-            .populate('sender', 'username');
+        };
+        const options = {
+            sort: { createdAt: -1 },
+            limit,
+            skip
+        };
+
+        const messages = await Message.find(query, options);
 
         res.json({ messages: messages.reverse() });
     } catch (error) {
@@ -80,9 +85,10 @@ router.put('/:id/read', auth, async (req, res) => {
             return res.status(403).json({ error: 'Unauthorized' });
         }
 
-        message.read = true;
-        message.readAt = new Date();
-        await message.save();
+        await Message.findByIdAndUpdate(req.params.id, {
+            read: true,
+            readAt: new Date()
+        });
 
         res.json({ message: 'Message marked as read' });
     } catch (error) {

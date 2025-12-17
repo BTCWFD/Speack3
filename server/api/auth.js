@@ -48,7 +48,7 @@ router.post('/register', [
         }
 
         // Create new user
-        const user = new User({
+        const user = await User.create({
             username,
             email,
             password,
@@ -57,8 +57,6 @@ router.post('/register', [
             preKeys: preKeys || [],
             signedPreKey
         });
-
-        await user.save();
 
         // Generate tokens
         const token = generateToken(user._id);
@@ -104,16 +102,14 @@ router.post('/login', [
         }
 
         // Check password
-        const isMatch = await user.comparePassword(password);
+        const isMatch = await User.comparePassword(password, user.password);
 
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         // Update online status
-        user.online = true;
-        user.lastSeen = new Date();
-        await user.save();
+        await User.findByIdAndUpdate(user._id, { online: true, lastSeen: new Date() });
 
         // Generate tokens
         const token = generateToken(user._id);
