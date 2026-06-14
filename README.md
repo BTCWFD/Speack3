@@ -11,6 +11,16 @@
 
 </div>
 
+## 🚀 Probar / Compartir
+
+| | Enlace |
+|---|---|
+| 📥 **Descargar APK** (Android, build de debug) | [Releases → apk-latest](https://github.com/BTCWFD/Speack3/releases/tag/apk-latest) |
+| ☁️ **Desplegar el servidor** (1 clic, gratis) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/BTCWFD/Speack3) |
+
+> El APK se genera automáticamente en la nube con GitHub Actions (workflow *Build Android APK*).
+> El servidor se despliega con el blueprint [`render.yaml`](render.yaml) (Render soporta WebSocket en el plan free).
+
 ## 📋 Descripción
 
 Speack3 es una aplicación de mensajería segura diseñada para grupos pequeños (~30 personas) con cifrado End-to-End usando **Signal Protocol**, el mismo sistema de cifrado utilizado por WhatsApp y Signal.

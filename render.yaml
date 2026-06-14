@@ -1,0 +1,25 @@
+# Render Blueprint — one-click deploy of the Speack3 server.
+# https://render.com/docs/blueprint-spec
+#
+# Deploy: push this repo to GitHub, then in Render click "New + > Blueprint"
+# and select the repo (or use the "Deploy to Render" button in the README).
+# Render supports WebSocket on the free plan. Note: the free plan filesystem is
+# ephemeral, so the NeDB data resets on redeploy/restart (fine for a demo).
+services:
+  - type: web
+    name: speack3-server
+    runtime: docker
+    repo: https://github.com/BTCWFD/Speack3
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "*"
