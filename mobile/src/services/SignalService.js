@@ -189,6 +189,17 @@ class SignalProtocolManager {
         }
     }
 
+    // True if a pairwise session already exists with the given user.
+    async hasSession(recipientId) {
+        try {
+            const address = new SignalProtocolAddress(recipientId, 1);
+            const session = await this.store.loadSession(address.toString());
+            return !!session;
+        } catch (error) {
+            return false;
+        }
+    }
+
     // Helper: ArrayBuffer to Base64
     arrayBufferToBase64(buffer) {
         const bytes = new Uint8Array(buffer);

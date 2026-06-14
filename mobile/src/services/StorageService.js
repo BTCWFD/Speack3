@@ -7,6 +7,7 @@ import * as Keychain from 'react-native-keychain';
 const AUTH_TOKEN_SERVICE = 'speack3.auth';
 const REFRESH_TOKEN_SERVICE = 'speack3.refresh';
 const IDENTITY_SERVICE = 'speack3.identity';
+const GROUP_KEYS_SERVICE = 'speack3.groupkeys';
 
 class Storage {
     // Auth Token Management
@@ -75,7 +76,8 @@ class Storage {
             await Promise.all([
                 Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE }),
                 Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE }),
-                Keychain.resetGenericPassword({ service: IDENTITY_SERVICE })
+                Keychain.resetGenericPassword({ service: IDENTITY_SERVICE }),
+                Keychain.resetGenericPassword({ service: GROUP_KEYS_SERVICE })
             ]);
         } catch (error) {
             console.error('Clear auth keychain error:', error);
@@ -170,6 +172,37 @@ class Storage {
         }
     }
 
+    // Group encryption keys (symmetric, one per group).
+    // Stored together as a JSON map in the Keychain under a single service.
+    async _getGroupKeyMap() {
+        try {
+            const credentials = await Keychain.getGenericPassword({
+                service: GROUP_KEYS_SERVICE
+            });
+            return credentials ? JSON.parse(credentials.password) : {};
+        } catch (error) {
+            console.error('Get group keys error:', error);
+            return {};
+        }
+    }
+
+    async saveGroupKey(groupId, keyB64) {
+        try {
+            const map = await this._getGroupKeyMap();
+            map[groupId] = keyB64;
+            await Keychain.setGenericPassword('group_keys', JSON.stringify(map), {
+                service: GROUP_KEYS_SERVICE
+            });
+        } catch (error) {
+            console.error('Save group key error:', error);
+        }
+    }
+
+    async getGroupKey(groupId) {
+        const map = await this._getGroupKeyMap();
+        return map[groupId] || null;
+    }
+
     // Message Cache
     //
     // RESIDUAL RISK: this cache keeps the last 100 decrypted messages per chat
@@ -259,7 +292,8 @@ class Storage {
             await Promise.all([
                 Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE }),
                 Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE }),
-                Keychain.resetGenericPassword({ service: IDENTITY_SERVICE })
+                Keychain.resetGenericPassword({ service: IDENTITY_SERVICE }),
+                Keychain.resetGenericPassword({ service: GROUP_KEYS_SERVICE })
             ]);
         } catch (error) {
             console.error('Clear all error:', error);

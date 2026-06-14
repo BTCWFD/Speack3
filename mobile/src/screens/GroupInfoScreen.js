@@ -14,6 +14,7 @@ import {
     Dialog
 } from 'react-native-paper';
 import ApiService from '../services/ApiService';
+import SocketService from '../services/SocketService';
 import { useAuth } from '../context/AuthContext';
 
 // Group members and the current user are referenced by their record id.
@@ -115,7 +116,15 @@ const GroupInfoScreen = ({ route, navigation }) => {
         }
         setBusy(true);
         try {
-            await ApiService.addGroupMembers(groupId, Array.from(selected));
+            const newIds = Array.from(selected);
+            await ApiService.addGroupMembers(groupId, newIds);
+            // Share the existing group key with the newly added members.
+            try {
+                const key = await SocketService.getOrCreateGroupKey(groupId, memberIds);
+                await SocketService.distributeGroupKey(groupId, key, newIds);
+            } catch (keyErr) {
+                console.error('Group key share error:', keyErr);
+            }
             setAddVisible(false);
             await loadData();
         } catch (err) {

@@ -2,6 +2,8 @@ import { io } from 'socket.io-client';
 import { WS_URL } from '../config/api';
 import StorageService from './StorageService';
 import SignalService from './SignalService';
+import GroupCryptoService from './GroupCryptoService';
+import ApiService from './ApiService';
 
 class SocketService {
     constructor() {
@@ -68,32 +70,59 @@ class SocketService {
         // Message events
         this.socket.on('message:receive', async (data) => {
             try {
-                // Decrypt message
-                const decrypted = await SignalService.decryptMessage(
-                    data.sender.id,
-                    JSON.parse(data.encryptedContent)
-                );
+                let content = null;
+
+                if (data.messageType === 'group') {
+                    // Group messages are encrypted with the shared group key.
+                    const key = await StorageService.getGroupKey(data.groupId);
+                    if (key) {
+                        try {
+                            content = GroupCryptoService.decrypt(data.encryptedContent, key);
+                        } catch (err) {
+                            content = null; // no/!wrong key yet
+                        }
+                    }
+                } else {
+                    // Direct messages use the pairwise Signal session.
+                    let decrypted = null;
+                    try {
+                        decrypted = await SignalService.decryptMessage(
+                            data.sender.id,
+                            JSON.parse(data.encryptedContent)
+                        );
+                    } catch (err) {
+                        decrypted = null;
+                    }
+
+                    // A direct message may actually be a group-key handshake.
+                    if (decrypted) {
+                        let control = null;
+                        try { control = JSON.parse(decrypted); } catch { control = null; }
+                        if (control && control.__speack3 === 'group-key' && control.groupId && control.key) {
+                            await StorageService.saveGroupKey(control.groupId, control.key);
+                            console.log('🔑 Group key received for', control.groupId);
+                            return; // not a user-visible message
+                        }
+                    }
+                    content = decrypted;
+                }
 
                 const message = {
                     id: data.id,
                     sender: data.sender,
-                    content: decrypted,
+                    content,
                     timestamp: data.timestamp,
                     messageType: data.messageType,
                     groupId: data.groupId
                 };
 
-                // Cache message locally
                 const chatId = data.messageType === 'group'
                     ? data.groupId
                     : data.sender.id;
 
                 await StorageService.saveMessage(chatId, message);
-
-                // Notify listeners
                 this.notifyMessageReceived(message);
-
-                console.log('📩 Message received and decrypted');
+                console.log('📩 Message received');
             } catch (error) {
                 console.error('Error processing received message:', error);
             }
@@ -125,26 +154,23 @@ class SocketService {
                 // payload used for incoming messages. Decrypt it the same way so
                 // screens receive plaintext. Group edits are forwarded as the
                 // simplified plaintext JSON ({ message }) used by sendGroupMessage.
-                if (data.sender?.id && data.encryptedContent) {
+                if ((data.messageType === 'group' || data.groupId) && data.encryptedContent) {
+                    // Group edit: decrypt with the shared group key.
+                    const key = await StorageService.getGroupKey(data.groupId);
+                    if (key) {
+                        try {
+                            content = GroupCryptoService.decrypt(data.encryptedContent, key);
+                        } catch {
+                            content = null;
+                        }
+                    }
+                } else if (data.sender?.id && data.encryptedContent) {
                     try {
                         content = await SignalService.decryptMessage(
                             data.sender.id,
                             JSON.parse(data.encryptedContent)
                         );
                     } catch (err) {
-                        // Fallback: group / plaintext payload
-                        try {
-                            const parsed = JSON.parse(data.encryptedContent);
-                            content = parsed.message ?? null;
-                        } catch {
-                            content = null;
-                        }
-                    }
-                } else if (data.encryptedContent) {
-                    try {
-                        const parsed = JSON.parse(data.encryptedContent);
-                        content = parsed.message ?? null;
-                    } catch {
                         content = null;
                     }
                 }
@@ -214,24 +240,84 @@ class SocketService {
         }
     }
 
-    // Send group message
+    // Ensure a pairwise Signal session exists with a user, building one from
+    // their published prekeys if needed.
+    async ensureSession(recipientId) {
+        if (await SignalService.hasSession(recipientId)) {
+            return true;
+        }
+        const bundle = await ApiService.getUserPreKeys(recipientId);
+        await SignalService.buildSession(recipientId, bundle);
+        return true;
+    }
+
+    // Send the group's symmetric key to each member over their pairwise Signal
+    // session (as a control message tunnelled through message:direct).
+    async distributeGroupKey(groupId, keyB64, memberIds) {
+        const me = await StorageService.getCurrentUser();
+        const myId = me?.id || me?._id;
+        const control = JSON.stringify({ __speack3: 'group-key', groupId, key: keyB64 });
+
+        for (const memberId of memberIds) {
+            if (!memberId || memberId === myId) continue;
+            try {
+                await this.ensureSession(memberId);
+                const encrypted = await SignalService.encryptMessage(memberId, control);
+                this.socket.emit('message:direct', {
+                    recipientId: memberId,
+                    encryptedContent: JSON.stringify(encrypted),
+                    tempId: `gk_${groupId}_${memberId}`
+                });
+            } catch (error) {
+                console.error('Distribute group key error for', memberId, error);
+            }
+        }
+    }
+
+    // Get the group key, creating + distributing one if this device doesn't
+    // have it yet.
+    async getOrCreateGroupKey(groupId, memberIds) {
+        let key = await StorageService.getGroupKey(groupId);
+        if (!key) {
+            key = GroupCryptoService.generateGroupKey();
+            await StorageService.saveGroupKey(groupId, key);
+            if (memberIds && memberIds.length) {
+                await this.distributeGroupKey(groupId, key, memberIds);
+            }
+        }
+        return key;
+    }
+
+    // Send group message — encrypted with the shared group key (AES-256-CBC +
+    // HMAC). The server only ever relays/stores the ciphertext.
     async sendGroupMessage(groupId, message, tempId) {
         try {
             if (!this.connected) {
                 throw new Error('Socket not connected');
             }
 
-            // For groups, encrypt with group key (simplified - using sender's key here)
-            // In production, implement proper group encryption (sender keys)
-            const encrypted = JSON.stringify({ message }); // Simplified
+            let key = await StorageService.getGroupKey(groupId);
+            if (!key) {
+                // No key yet on this device: fetch members, create + distribute.
+                let members = [];
+                try {
+                    const group = await ApiService.getGroupById(groupId);
+                    members = group?.members || [];
+                } catch (err) {
+                    members = [];
+                }
+                key = await this.getOrCreateGroupKey(groupId, members);
+            }
+
+            const encryptedContent = GroupCryptoService.encrypt(message, key);
 
             this.socket.emit('message:group', {
                 groupId,
-                encryptedContent: encrypted,
+                encryptedContent,
                 tempId
             });
 
-            console.log('📤 Group message sent');
+            console.log('📤 Group message sent (encrypted)');
         } catch (error) {
             console.error('Send group message error:', error);
             throw error;
@@ -248,8 +334,9 @@ class SocketService {
             let encryptedContent;
 
             if (isGroup) {
-                // Same simplified approach as sendGroupMessage
-                encryptedContent = JSON.stringify({ message: newText });
+                // Encrypt with the shared group key (same as sendGroupMessage).
+                const key = await this.getOrCreateGroupKey(recipientOrGroupId, null);
+                encryptedContent = GroupCryptoService.encrypt(newText, key);
             } else {
                 // Encrypt the same way as sendDirectMessage
                 const encrypted = await SignalService.encryptMessage(recipientOrGroupId, newText);

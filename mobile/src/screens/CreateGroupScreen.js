@@ -12,6 +12,7 @@ import {
     ActivityIndicator
 } from 'react-native-paper';
 import ApiService from '../services/ApiService';
+import SocketService from '../services/SocketService';
 
 const CreateGroupScreen = ({ navigation }) => {
     const [name, setName] = useState('');
@@ -62,11 +63,21 @@ const CreateGroupScreen = ({ navigation }) => {
 
         setCreating(true);
         try {
-            await ApiService.createGroup({
+            const group = await ApiService.createGroup({
                 name: trimmedName,
                 description: description.trim(),
                 members: Array.from(selected)
             });
+            // Generate the group encryption key and hand it to every member
+            // over their pairwise Signal session.
+            try {
+                const gid = group?._id || group?.id;
+                if (gid) {
+                    await SocketService.getOrCreateGroupKey(gid, group?.members || []);
+                }
+            } catch (keyErr) {
+                console.error('Group key setup error:', keyErr);
+            }
             navigation.goBack();
         } catch (error) {
             Alert.alert('Error', error.message || 'Could not create group');

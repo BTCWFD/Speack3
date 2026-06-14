@@ -1,6 +1,34 @@
 # Group Message Encryption — Design
 
-Status: **planned** (1-to-1 is already E2E; groups are currently plaintext).
+Status: **implemented as a draft** on branch `feature/group-encryption`
+(compiles/bundles; **not yet verified on a real device**). The shipped stable
+build still treats groups as plaintext until this is device-verified and merged.
+
+## Implemented (draft) — symmetric group key
+
+Rather than the per-recipient fan-out below, the draft uses a shared symmetric
+**group key** so message history, edit and delete keep working unchanged
+(one ciphertext per message, server stays a blind relay — no server changes):
+
+- `GroupCryptoService` — AES-256-CBC + HMAC-SHA256 (encrypt-then-MAC); the
+  32-byte key is split into enc/MAC subkeys via SHA-256.
+- The key is generated on group creation and **distributed to each member over
+  their pairwise Signal session** (a `{__speack3:'group-key'}` control message
+  tunnelled through `message:direct`); receivers detect it and store the key in
+  the Keychain (`StorageService.saveGroupKey`).
+- `SocketService.sendGroupMessage` encrypts with the group key;
+  `message:receive`/`message:edited` decrypt group payloads with it.
+- Adding a member re-shares the existing key (`GroupInfoScreen`).
+
+Known gaps before this can be promoted out of draft:
+- crypto-js RNG is not a hardware CSPRNG — move to a platform secure-random.
+- No per-message forward secrecy and no re-key when a member leaves.
+- Needs on-device testing of the Signal session handshake used for key delivery.
+
+---
+
+## Original plan (kept for reference): pairwise fan-out
+Status: **superseded** by the symmetric approach above for v1.
 
 ## Goal
 
