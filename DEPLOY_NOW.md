@@ -9,7 +9,7 @@
 Asegúrate de que tu PC y celular estén en la misma WiFi.
 
 ```powershell
-cdserver
+cd server
 node server.js
 ```
 
@@ -37,7 +37,7 @@ npx react-native run-android
 1. Abre `mobile/android` en Android Studio.
 2. Deja que detecte el SDK automáticamente.
 3. O crea un archivo `mobile/android/local.properties` con:
-   `sdk.dir=C:\\Users\\wilfr\\AppData\\Local\\Android\\Sdk`
+   `sdk.dir=C:\\Users\\<TU_USUARIO>\\AppData\\Local\\Android\\Sdk`
 
 **Error: "Metro bundler"**
 Si la app se cierra o queda en blanco:

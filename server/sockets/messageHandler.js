@@ -31,14 +31,14 @@ const setupSocketHandlers = (io) => {
         }
     });
 
-    io.on('connection', (socket) => {
+    io.on('connection', async (socket) => {
         console.log(`User connected: ${socket.username} (${socket.userId})`);
 
         // Store active connection
         activeUsers.set(socket.userId, socket.id);
 
         // Update user online status
-        User.findByIdAndUpdate(socket.userId, {
+        await User.findByIdAndUpdate(socket.userId, {
             online: true,
             lastSeen: new Date()
         });
@@ -127,7 +127,7 @@ const setupSocketHandlers = (io) => {
                 }
 
                 // Check posting permissions
-                if (group.settings.onlyAdminCanPost && group.admin.toString() !== socket.userId) {
+                if (group.settings?.onlyAdminCanPost && group.admin.toString() !== socket.userId) {
                     return socket.emit('message:error', {
                         error: 'Only admin can post in this group',
                         tempId: data.tempId

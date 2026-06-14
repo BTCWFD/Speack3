@@ -21,9 +21,9 @@ Después de la instalación, configura las variables de entorno:
 **Opción A: PowerShell (Temporal - para esta sesión)**
 
 ```powershell
-$env:ANDROID_HOME="C:\Users\wilfr\AppData\Local\Android\Sdk"
-$env:Path += ";C:\Users\wilfr\AppData\Local\Android\Sdk\platform-tools"
-$env:Path += ";C:\Users\wilfr\AppData\Local\Android\Sdk\emulator"
+$env:ANDROID_HOME="C:\Users\<TU_USUARIO>\AppData\Local\Android\Sdk"
+$env:Path += ";C:\Users\<TU_USUARIO>\AppData\Local\Android\Sdk\platform-tools"
+$env:Path += ";C:\Users\<TU_USUARIO>\AppData\Local\Android\Sdk\emulator"
 ```
 
 **Opción B: Sistema (Permanente - recomendado)**
@@ -32,7 +32,7 @@ $env:Path += ";C:\Users\wilfr\AppData\Local\Android\Sdk\emulator"
 2. Click en "Variables de entorno"
 3. En "Variables del sistema", click "Nueva":
    - Nombre: `ANDROID_HOME`
-   - Valor: `C:\Users\wilfr\AppData\Local\Android\Sdk`
+   - Valor: `C:\Users\<TU_USUARIO>\AppData\Local\Android\Sdk`
 4. Edita "Path" y añade:
    - `%ANDROID_HOME%\platform-tools`
    - `%ANDROID_HOME%\emulator`
@@ -71,10 +71,10 @@ Una vez completado, regresa aquí y te ayudo a:
 
 ```powershell
 # Verificar que existe
-Test-Path "C:\Users\wilfr\AppData\Local\Android\android-studio\bin\studio64.exe"
+Test-Path "C:\Users\<TU_USUARIO>\AppData\Local\Android\android-studio\bin\studio64.exe"
 
 # Abrir manualmente
-Start-Process "C:\Users\wilfr\AppData\Local\Android\android-studio\bin\studio64.exe"
+Start-Process "C:\Users\<TU_USUARIO>\AppData\Local\Android\android-studio\bin\studio64.exe"
 ```
 
 **Si falta JDK:**

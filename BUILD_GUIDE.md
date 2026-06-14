@@ -21,7 +21,7 @@ npm install -g react-native-cli
 ### 2. Instalar Dependencias del Proyecto
 
 ```bash
-cd C:\Users\wilfr\OneDrive\Documentos\Speack3\mobile
+cd C:\Users\<TU_USUARIO>\<RUTA_AL_PROYECTO>\Speack3\mobile
 npm install
 ```
 

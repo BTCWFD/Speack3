@@ -36,12 +36,12 @@ Write-Host "✅ Variables configuradas. Cierra y abre PowerShell para aplicar ca
 ## Paso 2: Instalar Android SDK Command Line Tools
 
 Si Android Studio ya se configuró, debería estar en:
-`C:\Users\wilfr\AppData\Local\Android\Sdk`
+`C:\Users\<TU_USUARIO>\AppData\Local\Android\Sdk`
 
 Si NO está, descarga manualmente:
 
 1. <https://developer.android.com/studio#command-tools>
-2. Extrae en `C:\Users\wilfr\AppData\Local\Android\Sdk\cmdline-tools\latest`
+2. Extrae en `C:\Users\<TU_USUARIO>\AppData\Local\Android\Sdk\cmdline-tools\latest`
 
 ## Paso 3: Instalar Componentes Necesarios
 
@@ -76,7 +76,7 @@ emulator -avd Speack3_Emulator &
 ## Paso 6: Inicializar React Native con Estructura Nativa
 
 ```powershell
-cd C:\Users\wilfr\OneDrive\Documentos\Speack3
+cd C:\Users\<TU_USUARIO>\<RUTA_AL_PROYECTO>\Speack3
 
 # Crear proyecto nuevo con estructura completa
 npx react-native init Speack3Native

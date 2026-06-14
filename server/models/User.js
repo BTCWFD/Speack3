@@ -22,7 +22,15 @@ class UserModel {
   }
 
   async findByIdAndUpdate(id, update) {
-    await users.update({ _id: id }, { $set: { ...update, updatedAt: new Date() } });
+    // NeDB natively supports Mongo-style modifiers ($set, $pull, $addToSet, $push...).
+    // If the caller already passed modifiers, forward them as-is (just refreshing
+    // updatedAt inside $set). Otherwise treat `update` as a plain field map.
+    const hasOperators = Object.keys(update).some((key) => key.startsWith('$'));
+    const modifier = hasOperators
+      ? { ...update, $set: { ...(update.$set || {}), updatedAt: new Date() } }
+      : { $set: { ...update, updatedAt: new Date() } };
+
+    await users.update({ _id: id }, modifier);
     return await this.findById(id);
   }
 

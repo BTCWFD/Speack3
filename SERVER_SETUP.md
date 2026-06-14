@@ -25,7 +25,7 @@ net start MongoDB
 ### 2. Instalar Dependencias del Servidor
 
 ```bash
-cd C:\Users\wilfr\OneDrive\Documentos\Speack3\server
+cd C:\Users\<TU_USUARIO>\<RUTA_AL_PROYECTO>\Speack3\server
 npm install
 ```
 

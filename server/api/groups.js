@@ -100,7 +100,7 @@ router.put('/:id/members', [
 
         // Check if user is admin or allowed to add members
         const isAdmin = group.admin.toString() === req.userId;
-        const canAddMembers = group.settings.memberCanAddOthers;
+        const canAddMembers = group.settings?.memberCanAddOthers;
 
         if (!isAdmin && !canAddMembers) {
             return res.status(403).json({ error: 'Only admin can add members' });

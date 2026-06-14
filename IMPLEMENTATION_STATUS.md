@@ -50,7 +50,7 @@
 ### 1. Asegúrate que el servidor esté corriendo
 
 ```powershell
-cd C:\Users\wilfr\OneDrive\Documentos\Speack3\server
+cd C:\Users\<TU_USUARIO>\<RUTA_AL_PROYECTO>\Speack3\server
 node server.js
 ```
 

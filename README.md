@@ -7,7 +7,7 @@
 [![React Native](https://img.shields.io/badge/React_Native-0.73-61DAFB?logo=react)](https://reactnative.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)](https://nodejs.org/)
 [![Signal Protocol](https://img.shields.io/badge/Signal_Protocol-E2E-blue)](https://signal.org/docs/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-5.0-47A248?logo=mongodb)](https://www.mongodb.com/)
+[![NeDB](https://img.shields.io/badge/NeDB-embedded-orange)](https://github.com/seald/nedb)
 
 </div>
 
@@ -36,7 +36,7 @@ Speack3 es una aplicación de mensajería segura diseñada para grupos pequeños
 │                 │         │                  │
 │ - Signal E2E    │  WSS    │   Socket.io      │
 │ - React Nav     │◄────────┤                  │
-│ - AsyncStorage  │         │   MongoDB        │
+│ - AsyncStorage  │         │   NeDB (embebida)│
 │ - Keychain      │         │   JWT Auth       │
 └─────────────────┘         └──────────────────┘
 ```
@@ -46,9 +46,11 @@ Speack3 es una aplicación de mensajería segura diseñada para grupos pequeños
 ### Prerrequisitos
 
 - Node.js 18+
-- MongoDB 5.0+
 - Android Studio (para Android)
 - Xcode (para iOS, solo macOS)
+
+> **Base de datos:** el servidor usa **NeDB** (embebida, basada en archivos bajo `server/data/`).
+> No necesitas instalar ni configurar MongoDB para desarrollo local.
 
 ### 1. Configurar el Servidor
 
@@ -155,7 +157,7 @@ Speack3/
 
 - **Node.js** + **Express** - Servidor HTTP/REST API
 - **Socket.io** - WebSocket para tiempo real
-- **MongoDB** + **Mongoose** - Base de datos
+- **NeDB** - Base de datos embebida basada en archivos (sin servidor de BD externo)
 - **JWT** - Autenticación
 - **bcrypt** - Hashing de passwords
 
@@ -261,8 +263,7 @@ Este proyecto está bajo la Licencia MIT. Ver [LICENSE](LICENSE) para más detal
 
 Para preguntas o soporte:
 
-- 📧 Email: [tu-email@ejemplo.com]
-- 💬 Issues: [GitHub Issues](https://github.com/tu-usuario/speack3/issues)
+- 💬 Issues: [GitHub Issues](https://github.com/BTCWFD/Speack3/issues)
 
 ---
 

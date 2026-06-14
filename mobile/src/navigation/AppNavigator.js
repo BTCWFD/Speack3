@@ -11,6 +11,8 @@ import RegisterScreen from '../screens/RegisterScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import ChatScreen from '../screens/ChatScreen';
 import GroupChatScreen from '../screens/GroupChatScreen';
+import CreateGroupScreen from '../screens/CreateGroupScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -29,6 +31,7 @@ const ChatStack = () => (
         <Stack.Screen name="ChatList" component={ChatListScreen} />
         <Stack.Screen name="Chat" component={ChatScreen} />
         <Stack.Screen name="GroupChat" component={GroupChatScreen} />
+        <Stack.Screen name="CreateGroup" component={CreateGroupScreen} />
     </Stack.Navigator>
 );
 
@@ -52,7 +55,7 @@ export const MainNavigator = () => (
         />
         <Tab.Screen
             name="Settings"
-            component={ChatListScreen} // TODO: Create SettingsScreen
+            component={SettingsScreen}
             options={{
                 tabBarIcon: ({ color, size }) => (
                     <Icon name="cog" size={size} color={color} />

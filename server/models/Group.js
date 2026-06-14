@@ -3,6 +3,13 @@ const { groups } = require('../config/nedb');
 class GroupModel {
     async create(data) {
         data.createdAt = new Date();
+        // Ensure settings always exist so consumers can safely read
+        // group.settings.memberCanAddOthers / onlyAdminCanPost.
+        data.settings = {
+            memberCanAddOthers: false,
+            onlyAdminCanPost: false,
+            ...(data.settings || {})
+        };
         if (!data.members.includes(data.admin)) {
             data.members.push(data.admin);
         }
@@ -18,7 +25,14 @@ class GroupModel {
     }
 
     async findByIdAndUpdate(id, update) {
-        await groups.update({ _id: id }, { $set: update });
+        // Forward Mongo-style modifiers ($pull, $addToSet, ...) straight to NeDB;
+        // wrap plain field maps in $set. Always refresh updatedAt.
+        const hasOperators = Object.keys(update).some((key) => key.startsWith('$'));
+        const modifier = hasOperators
+            ? { ...update, $set: { ...(update.$set || {}), updatedAt: new Date() } }
+            : { $set: { ...update, updatedAt: new Date() } };
+
+        await groups.update({ _id: id }, modifier);
         return await this.findById(id);
     }
 
