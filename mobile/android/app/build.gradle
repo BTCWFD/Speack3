@@ -117,4 +117,14 @@ dependencies {
     }
 }
 
+// Pin androidx.core to a version compatible with compileSdk 34 / AGP 8.1.
+// A transitive dependency otherwise pulls androidx.core 1.16.x, which demands
+// compileSdk 35 and AGP 8.6+ and breaks the build.
+configurations.all {
+    resolutionStrategy {
+        force "androidx.core:core:1.13.1"
+        force "androidx.core:core-ktx:1.13.1"
+    }
+}
+
 apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
