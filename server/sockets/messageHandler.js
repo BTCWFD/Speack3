@@ -6,6 +6,14 @@ const Group = require('../models/Group');
 // Store active socket connections
 const activeUsers = new Map(); // userId -> socketId
 
+// Maximum accepted length for an encrypted message payload.
+const MAX_CONTENT_LENGTH = 100000;
+
+// Small validation helpers for socket inputs.
+const isNonEmptyString = (x) => typeof x === 'string' && x.trim().length > 0;
+const isValidContent = (x) =>
+    typeof x === 'string' && x.length > 0 && x.length <= MAX_CONTENT_LENGTH;
+
 const setupSocketHandlers = (io) => {
     // Socket.io middleware for authentication
     io.use(async (socket, next) => {
@@ -55,7 +63,15 @@ const setupSocketHandlers = (io) => {
         // Handle direct message
         socket.on('message:direct', async (data) => {
             try {
-                const { recipientId, encryptedContent } = data;
+                const { recipientId, encryptedContent } = data || {};
+
+                // Validate input
+                if (!isNonEmptyString(recipientId) || !isValidContent(encryptedContent)) {
+                    return socket.emit('message:error', {
+                        error: 'Invalid message payload',
+                        tempId: data?.tempId
+                    });
+                }
 
                 // Save message to database
                 const message = await Message.create({
@@ -114,7 +130,15 @@ const setupSocketHandlers = (io) => {
         // Handle group message
         socket.on('message:group', async (data) => {
             try {
-                const { groupId, encryptedContent } = data;
+                const { groupId, encryptedContent } = data || {};
+
+                // Validate input
+                if (!isNonEmptyString(groupId) || !isValidContent(encryptedContent)) {
+                    return socket.emit('message:error', {
+                        error: 'Invalid message payload',
+                        tempId: data?.tempId
+                    });
+                }
 
                 // Verify user is member
                 const group = await Group.findById(groupId);
@@ -175,12 +199,13 @@ const setupSocketHandlers = (io) => {
 
         // Handle typing indicator
         socket.on('typing:start', (data) => {
-            if (data.recipientId) {
+            if (!data) return;
+            if (isNonEmptyString(data.recipientId)) {
                 io.to(`user:${data.recipientId}`).emit('typing:start', {
                     userId: socket.userId,
                     username: socket.username
                 });
-            } else if (data.groupId) {
+            } else if (isNonEmptyString(data.groupId)) {
                 socket.to(`group:${data.groupId}`).emit('typing:start', {
                     userId: socket.userId,
                     username: socket.username,
@@ -190,11 +215,12 @@ const setupSocketHandlers = (io) => {
         });
 
         socket.on('typing:stop', (data) => {
-            if (data.recipientId) {
+            if (!data) return;
+            if (isNonEmptyString(data.recipientId)) {
                 io.to(`user:${data.recipientId}`).emit('typing:stop', {
                     userId: socket.userId
                 });
-            } else if (data.groupId) {
+            } else if (isNonEmptyString(data.groupId)) {
                 socket.to(`group:${data.groupId}`).emit('typing:stop', {
                     userId: socket.userId,
                     groupId: data.groupId
@@ -205,7 +231,13 @@ const setupSocketHandlers = (io) => {
         // Handle message read receipt
         socket.on('message:read', async (data) => {
             try {
-                const { messageId } = data;
+                const { messageId } = data || {};
+
+                // Validate input
+                if (!isNonEmptyString(messageId)) {
+                    return;
+                }
+
                 const message = await Message.findById(messageId);
 
                 if (message && message.recipient?.toString() === socket.userId) {
@@ -228,7 +260,16 @@ const setupSocketHandlers = (io) => {
         // Handle message edit (soft-edit)
         socket.on('message:edit', async (data) => {
             try {
-                const { messageId, encryptedContent } = data;
+                const { messageId, encryptedContent } = data || {};
+
+                // Validate input
+                if (!isNonEmptyString(messageId) || !isValidContent(encryptedContent)) {
+                    return socket.emit('message:error', {
+                        error: 'Invalid message payload',
+                        tempId: data?.tempId
+                    });
+                }
+
                 const message = await Message.findById(messageId);
 
                 if (!message) {
@@ -287,7 +328,16 @@ const setupSocketHandlers = (io) => {
         // Handle message delete (soft-delete)
         socket.on('message:delete', async (data) => {
             try {
-                const { messageId } = data;
+                const { messageId } = data || {};
+
+                // Validate input
+                if (!isNonEmptyString(messageId)) {
+                    return socket.emit('message:error', {
+                        error: 'Invalid message payload',
+                        tempId: data?.tempId
+                    });
+                }
+
                 const message = await Message.findById(messageId);
 
                 if (!message) {

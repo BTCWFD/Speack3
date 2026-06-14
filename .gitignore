@@ -21,6 +21,9 @@ mobile/ios/build/
 *.apk
 *.aab
 
+# Agent/team internal files
+.claude/
+
 # Misc
 .DS_Store
 Thumbs.db

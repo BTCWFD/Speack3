@@ -6,6 +6,8 @@ const User = require('../models/User');
 const auth = require('../middleware/auth');
 
 // Generate JWT token
+// NOTE: access tokens are short-lived (1h) and are NOT individually revocable.
+// Revocation is handled at the refresh-token level via the tokenVersion scheme below.
 const generateToken = (userId) => {
     return jwt.sign({ userId }, process.env.JWT_SECRET, {
         expiresIn: process.env.JWT_EXPIRE || '1h'
@@ -13,8 +15,10 @@ const generateToken = (userId) => {
 };
 
 // Generate refresh token
-const generateRefreshToken = (userId) => {
-    return jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, {
+// Embeds the user's current tokenVersion so that incrementing it on the user
+// (e.g. on logout) invalidates every previously-issued refresh token.
+const generateRefreshToken = (userId, tokenVersion = 0) => {
+    return jwt.sign({ userId, tokenVersion }, process.env.JWT_REFRESH_SECRET, {
         expiresIn: process.env.JWT_REFRESH_EXPIRE || '7d'
     });
 };
@@ -25,7 +29,10 @@ const generateRefreshToken = (userId) => {
 router.post('/register', [
     body('username').trim().isLength({ min: 3, max: 30 }).withMessage('Username must be 3-30 characters'),
     body('email').isEmail().normalizeEmail().withMessage('Invalid email'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('password')
+        .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+        .matches(/[A-Za-z]/).withMessage('Password must contain at least one letter')
+        .matches(/[0-9]/).withMessage('Password must contain at least one number'),
     body('identityKeyPublic').notEmpty().withMessage('Identity key required'),
     body('registrationId').isNumeric().withMessage('Registration ID required')
 ], async (req, res) => {
@@ -60,7 +67,7 @@ router.post('/register', [
 
         // Generate tokens
         const token = generateToken(user._id);
-        const refreshToken = generateRefreshToken(user._id);
+        const refreshToken = generateRefreshToken(user._id, user.tokenVersion || 0);
 
         res.status(201).json({
             message: 'User registered successfully',
@@ -113,7 +120,7 @@ router.post('/login', [
 
         // Generate tokens
         const token = generateToken(user._id);
-        const refreshToken = generateRefreshToken(user._id);
+        const refreshToken = generateRefreshToken(user._id, user.tokenVersion || 0);
 
         res.json({
             message: 'Login successful',
@@ -147,6 +154,18 @@ router.post('/refresh', async (req, res) => {
         // Verify refresh token
         const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
 
+        // Ensure the user still exists and the token has not been revoked.
+        // A logout increments the user's tokenVersion, invalidating older tokens.
+        const user = await User.findById(decoded.userId);
+
+        if (!user) {
+            return res.status(401).json({ error: 'Invalid refresh token' });
+        }
+
+        if ((decoded.tokenVersion || 0) !== (user.tokenVersion || 0)) {
+            return res.status(401).json({ error: 'Refresh token has been revoked' });
+        }
+
         // Generate new access token
         const token = generateToken(decoded.userId);
 
@@ -162,10 +181,11 @@ router.post('/refresh', async (req, res) => {
 // @access  Private
 router.post('/logout', auth, async (req, res) => {
     try {
-        // Update user status
+        // Update user status and increment tokenVersion so that any existing
+        // refresh tokens are invalidated (revocation on logout).
         await User.findByIdAndUpdate(req.userId, {
-            online: false,
-            lastSeen: new Date()
+            $set: { online: false, lastSeen: new Date() },
+            $inc: { tokenVersion: 1 }
         });
 
         res.json({ message: 'Logout successful' });

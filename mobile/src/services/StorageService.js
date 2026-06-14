@@ -1,11 +1,31 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
 
+// Keychain service identifiers. Each secret lives under its own service so
+// they can be stored and cleared independently, matching the existing
+// 'speack3.identity' pattern used for the Signal identity key.
+const AUTH_TOKEN_SERVICE = 'speack3.auth';
+const REFRESH_TOKEN_SERVICE = 'speack3.refresh';
+const IDENTITY_SERVICE = 'speack3.identity';
+
 class Storage {
     // Auth Token Management
+    //
+    // Access and refresh tokens are stored in the device Keychain/Keystore
+    // (react-native-keychain) rather than AsyncStorage so they are not
+    // recoverable in plaintext via a filesystem extraction. The method
+    // names/signatures are unchanged and remain async, so ApiService and
+    // SocketService (which already await them) keep working.
     async saveAuthToken(token) {
         try {
-            await AsyncStorage.setItem('auth_token', token);
+            // Keychain requires a non-empty value; clear the entry on falsy input.
+            if (!token) {
+                await Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE });
+                return;
+            }
+            await Keychain.setGenericPassword('auth_token', token, {
+                service: AUTH_TOKEN_SERVICE
+            });
         } catch (error) {
             console.error('Save token error:', error);
         }
@@ -13,7 +33,10 @@ class Storage {
 
     async getAuthToken() {
         try {
-            return await AsyncStorage.getItem('auth_token');
+            const credentials = await Keychain.getGenericPassword({
+                service: AUTH_TOKEN_SERVICE
+            });
+            return credentials ? credentials.password : null;
         } catch (error) {
             console.error('Get token error:', error);
             return null;
@@ -22,7 +45,13 @@ class Storage {
 
     async saveRefreshToken(token) {
         try {
-            await AsyncStorage.setItem('refresh_token', token);
+            if (!token) {
+                await Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE });
+                return;
+            }
+            await Keychain.setGenericPassword('refresh_token', token, {
+                service: REFRESH_TOKEN_SERVICE
+            });
         } catch (error) {
             console.error('Save refresh token error:', error);
         }
@@ -30,7 +59,10 @@ class Storage {
 
     async getRefreshToken() {
         try {
-            return await AsyncStorage.getItem('refresh_token');
+            const credentials = await Keychain.getGenericPassword({
+                service: REFRESH_TOKEN_SERVICE
+            });
+            return credentials ? credentials.password : null;
         } catch (error) {
             console.error('Get refresh token error:', error);
             return null;
@@ -39,7 +71,27 @@ class Storage {
 
     async clearAuth() {
         try {
-            await AsyncStorage.multiRemove(['auth_token', 'refresh_token', 'current_user']);
+            // Clear secrets from the Keychain (auth + refresh + Signal identity)...
+            await Promise.all([
+                Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE }),
+                Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE }),
+                Keychain.resetGenericPassword({ service: IDENTITY_SERVICE })
+            ]);
+        } catch (error) {
+            console.error('Clear auth keychain error:', error);
+        }
+
+        try {
+            // ...then remove the remaining AsyncStorage items, including any
+            // cached message threads (keys are prefixed with `messages_`).
+            const keys = await AsyncStorage.getAllKeys();
+            const toRemove = ['current_user', 'registration_id', 'auth_token', 'refresh_token'];
+            for (const key of keys) {
+                if (key.startsWith('messages_')) {
+                    toRemove.push(key);
+                }
+            }
+            await AsyncStorage.multiRemove(toRemove);
         } catch (error) {
             console.error('Clear auth error:', error);
         }
@@ -73,7 +125,7 @@ class Storage {
             });
 
             await Keychain.setGenericPassword('identity_key', data, {
-                service: 'speack3.identity'
+                service: IDENTITY_SERVICE
             });
         } catch (error) {
             console.error('Save identity key error:', error);
@@ -83,7 +135,7 @@ class Storage {
     async getIdentityKeyPair() {
         try {
             const credentials = await Keychain.getGenericPassword({
-                service: 'speack3.identity'
+                service: IDENTITY_SERVICE
             });
 
             if (credentials) {
@@ -119,6 +171,17 @@ class Storage {
     }
 
     // Message Cache
+    //
+    // RESIDUAL RISK: this cache keeps the last 100 decrypted messages per chat
+    // in AsyncStorage, which is NOT encrypted at rest. On a rooted/jailbroken
+    // device or via a filesystem backup extraction, cached message bodies could
+    // be recovered. The auth/refresh tokens and Signal identity key have been
+    // moved to the Keychain, but message bodies remain here to preserve the
+    // existing cache API (saveMessage/getMessages/updateMessage/markMessageDeleted)
+    // used by the chat screens without adding a crypto dependency. The cache is
+    // wiped on logout via clearAuth() and via clearMessages()/clearAll().
+    // TODO: encrypt cached bodies at rest (e.g. an MMKV-encrypted or
+    // SQLCipher-backed store) once a vetted dependency is available.
     async saveMessage(chatId, message) {
         try {
             const key = `messages_${chatId}`;
@@ -193,7 +256,11 @@ class Storage {
     async clearAll() {
         try {
             await AsyncStorage.clear();
-            await Keychain.resetGenericPassword({ service: 'speack3.identity' });
+            await Promise.all([
+                Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE }),
+                Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE }),
+                Keychain.resetGenericPassword({ service: IDENTITY_SERVICE })
+            ]);
         } catch (error) {
             console.error('Clear all error:', error);
         }
