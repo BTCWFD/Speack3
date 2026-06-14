@@ -1,0 +1,2 @@
+# Keeps the data/ directory present after clone. NeDB writes its *.db files
+# here at runtime; those files are gitignored. Do not delete this file.

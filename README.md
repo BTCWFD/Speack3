@@ -104,9 +104,8 @@ Ver [BUILD_GUIDE.md](BUILD_GUIDE.md) para construcción de APK/IPA.
 
 ## 📱 Capturas de Pantalla
 
-| Login | Chat List | Conversación |
-|-------|-----------|--------------|
-| <img src="docs/screenshots/login.png" width="200" /> | <img src="docs/screenshots/chat-list.png" width="200" /> | <img src="docs/screenshots/chat.png" width="200" /> |
+> Capturas pendientes. Para probar la app, descarga el [APK](https://github.com/BTCWFD/Speack3/releases/tag/apk-latest)
+> o ejecútala en un emulador (ver [BUILD_GUIDE.md](BUILD_GUIDE.md)).
 
 ## 🔐 Seguridad
 
