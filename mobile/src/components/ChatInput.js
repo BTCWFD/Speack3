@@ -1,16 +1,31 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { TextInput, IconButton } from 'react-native-paper';
+import { TextInput, IconButton, Text } from 'react-native-paper';
 
-const ChatInput = ({ onSend, onTyping, placeholder = 'Type a message...' }) => {
+const ChatInput = ({
+    onSend,
+    onTyping,
+    placeholder = 'Type a message...',
+    editing = null,
+    onCancelEdit
+}) => {
     const [message, setMessage] = useState('');
     const typingTimeoutRef = useRef(null);
+
+    // When an edit starts, pre-fill the input with the text being edited.
+    useEffect(() => {
+        if (editing) {
+            setMessage(editing.content ?? '');
+        } else {
+            setMessage('');
+        }
+    }, [editing]);
 
     const handleMessageChange = (text) => {
         setMessage(text);
 
-        // Notify typing start
-        if (onTyping) {
+        // Notify typing start (skip while editing)
+        if (onTyping && !editing) {
             onTyping(true);
 
             // Clear existing timeout
@@ -43,19 +58,42 @@ const ChatInput = ({ onSend, onTyping, placeholder = 'Type a message...' }) => {
         }
     };
 
+    const handleCancel = () => {
+        setMessage('');
+        if (onCancelEdit) {
+            onCancelEdit();
+        }
+    };
+
     return (
         <View style={styles.container}>
+            {editing && (
+                <View style={styles.editBanner}>
+                    <View style={styles.editBannerText}>
+                        <Text style={styles.editLabel}>Editing message</Text>
+                        <Text style={styles.editPreview} numberOfLines={1}>
+                            {editing.content}
+                        </Text>
+                    </View>
+                    <IconButton
+                        icon="close"
+                        size={18}
+                        onPress={handleCancel}
+                    />
+                </View>
+            )}
+
             <TextInput
                 value={message}
                 onChangeText={handleMessageChange}
-                placeholder={placeholder}
+                placeholder={editing ? 'Edit message...' : placeholder}
                 mode="outlined"
                 multiline
                 maxLength={1000}
                 style={styles.input}
                 right={
                     <TextInput.Icon
-                        icon="send"
+                        icon={editing ? 'check' : 'send'}
                         disabled={!message.trim()}
                         onPress={handleSend}
                         color={message.trim() ? '#6200ee' : '#ccc'}
@@ -76,6 +114,28 @@ const styles = StyleSheet.create({
     input: {
         maxHeight: 100,
         backgroundColor: '#fff'
+    },
+    editBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingLeft: 12,
+        marginBottom: 4,
+        borderLeftWidth: 3,
+        borderLeftColor: '#6200ee',
+        backgroundColor: '#f3effc',
+        borderRadius: 4
+    },
+    editBannerText: {
+        flex: 1
+    },
+    editLabel: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#6200ee'
+    },
+    editPreview: {
+        fontSize: 13,
+        color: '#666'
     }
 });
 

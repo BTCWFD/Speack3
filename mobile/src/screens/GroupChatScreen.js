@@ -4,7 +4,8 @@ import {
     FlatList,
     StyleSheet,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Alert
 } from 'react-native';
 import {
     Appbar,
@@ -16,6 +17,7 @@ import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
+import StorageService from '../services/StorageService';
 import { useAuth } from '../context/AuthContext';
 
 const GroupChatScreen = ({ route, navigation }) => {
@@ -25,6 +27,7 @@ const GroupChatScreen = ({ route, navigation }) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [menuVisible, setMenuVisible] = useState(false);
+    const [editingMessage, setEditingMessage] = useState(null);
 
     const flatListRef = useRef(null);
 
@@ -34,7 +37,15 @@ const GroupChatScreen = ({ route, navigation }) => {
         // Listen for new messages
         const unsubscribe = SocketService.onMessage(handleNewMessage);
 
-        return () => unsubscribe();
+        // Listen for edit / delete broadcasts
+        const unsubscribeEdited = SocketService.onMessageEdited(handleMessageEdited);
+        const unsubscribeDeleted = SocketService.onMessageDeleted(handleMessageDeleted);
+
+        return () => {
+            unsubscribe();
+            unsubscribeEdited();
+            unsubscribeDeleted();
+        };
     }, [groupId]);
 
     const loadMessages = async () => {
@@ -100,11 +111,118 @@ const GroupChatScreen = ({ route, navigation }) => {
         }
     };
 
+    const matchesId = (msg, messageId) => {
+        const id = msg.id ?? msg._id;
+        return id?.toString() === messageId?.toString();
+    };
+
+    const handleMessageEdited = (data) => {
+        // Group edits are scoped by groupId when present
+        if (data.groupId && data.groupId !== groupId) {
+            return;
+        }
+
+        setMessages(prev => prev.map(msg =>
+            matchesId(msg, data.messageId)
+                ? {
+                    ...msg,
+                    content: data.content ?? msg.content,
+                    edited: true,
+                    editedAt: data.editedAt
+                }
+                : msg
+        ));
+
+        StorageService.updateMessage(groupId, data.messageId, (msg) => ({
+            ...msg,
+            content: data.content ?? msg.content,
+            edited: true,
+            editedAt: data.editedAt
+        }));
+    };
+
+    const handleMessageDeleted = (data) => {
+        if (data.groupId && data.groupId !== groupId) {
+            return;
+        }
+
+        setMessages(prev => prev.map(msg =>
+            matchesId(msg, data.messageId)
+                ? { ...msg, deleted: true, content: '' }
+                : msg
+        ));
+
+        StorageService.markMessageDeleted(groupId, data.messageId);
+    };
+
+    const handleEdit = (message) => {
+        setEditingMessage(message);
+    };
+
+    const handleDelete = (message) => {
+        Alert.alert(
+            'Delete message',
+            'Are you sure you want to delete this message?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                        const messageId = message.id ?? message._id;
+                        try {
+                            SocketService.deleteMessage(messageId);
+                        } catch (error) {
+                            console.error('Delete message error:', error);
+                        }
+
+                        setMessages(prev => prev.map(msg =>
+                            matchesId(msg, messageId)
+                                ? { ...msg, deleted: true, content: '' }
+                                : msg
+                        ));
+                        StorageService.markMessageDeleted(groupId, messageId);
+                    }
+                }
+            ]
+        );
+    };
+
+    const submitEdit = async (newText) => {
+        const target = editingMessage;
+        setEditingMessage(null);
+
+        if (!target) {
+            return;
+        }
+
+        const messageId = target.id ?? target._id;
+
+        setMessages(prev => prev.map(msg =>
+            matchesId(msg, messageId)
+                ? { ...msg, content: newText, edited: true }
+                : msg
+        ));
+
+        try {
+            await SocketService.editMessage(groupId, messageId, newText, true);
+            StorageService.updateMessage(groupId, messageId, (msg) => ({
+                ...msg,
+                content: newText,
+                edited: true
+            }));
+        } catch (error) {
+            console.error('Edit group message error:', error);
+        }
+    };
+
     const renderMessage = ({ item }) => (
         <MessageBubble
             message={item}
             isOwnMessage={item.sender.id === user.id}
             showSenderName={true}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
         />
     );
 
@@ -133,14 +251,14 @@ const GroupChatScreen = ({ route, navigation }) => {
                     <Menu.Item
                         onPress={() => {
                             setMenuVisible(false);
-                            // TODO: Navigate to group info
+                            navigation.navigate('GroupInfo', { groupId, groupName });
                         }}
                         title="Group info"
                     />
                     <Menu.Item
                         onPress={() => {
                             setMenuVisible(false);
-                            // TODO: Add members
+                            navigation.navigate('GroupInfo', { groupId, groupName });
                         }}
                         title="Add members"
                     />
@@ -165,8 +283,10 @@ const GroupChatScreen = ({ route, navigation }) => {
             </View>
 
             <ChatInput
-                onSend={sendMessage}
+                onSend={editingMessage ? submitEdit : sendMessage}
                 placeholder={`Message ${groupName}`}
+                editing={editingMessage}
+                onCancelEdit={() => setEditingMessage(null)}
             />
         </KeyboardAvoidingView>
     );

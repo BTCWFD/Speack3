@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const Message = require('../models/Message');
 const Group = require('../models/Group');
@@ -93,6 +94,72 @@ router.put('/:id/read', auth, async (req, res) => {
         res.json({ message: 'Message marked as read' });
     } catch (error) {
         console.error('Mark read error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   PUT /api/messages/:id
+// @desc    Edit a message (soft-edit, sender only)
+// @access  Private
+router.put('/:id', [
+    auth,
+    body('encryptedContent').isString().notEmpty().withMessage('Encrypted content required')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const message = await Message.findById(req.params.id);
+
+        if (!message) {
+            return res.status(404).json({ error: 'Message not found' });
+        }
+
+        // Only the original sender can edit
+        if (message.sender?.toString() !== req.userId) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        const updatedMessage = await Message.findByIdAndUpdate(req.params.id, {
+            encryptedContent: req.body.encryptedContent,
+            edited: true,
+            editedAt: new Date()
+        });
+
+        res.json({ message: updatedMessage });
+    } catch (error) {
+        console.error('Edit message error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   DELETE /api/messages/:id
+// @desc    Delete a message (soft-delete, sender only)
+// @access  Private
+router.delete('/:id', auth, async (req, res) => {
+    try {
+        const message = await Message.findById(req.params.id);
+
+        if (!message) {
+            return res.status(404).json({ error: 'Message not found' });
+        }
+
+        // Only the original sender can delete
+        if (message.sender?.toString() !== req.userId) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        // Soft-delete: keep the record, clear the content
+        await Message.findByIdAndUpdate(req.params.id, {
+            deleted: true,
+            encryptedContent: ''
+        });
+
+        res.json({ message: 'Message deleted' });
+    } catch (error) {
+        console.error('Delete message error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

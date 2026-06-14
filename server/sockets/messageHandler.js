@@ -225,6 +225,120 @@ const setupSocketHandlers = (io) => {
             }
         });
 
+        // Handle message edit (soft-edit)
+        socket.on('message:edit', async (data) => {
+            try {
+                const { messageId, encryptedContent } = data;
+                const message = await Message.findById(messageId);
+
+                if (!message) {
+                    return socket.emit('message:error', {
+                        error: 'Message not found',
+                        tempId: data.tempId
+                    });
+                }
+
+                // Only the original sender may edit
+                if (message.sender.toString() !== socket.userId) {
+                    return socket.emit('message:error', {
+                        error: 'Unauthorized',
+                        tempId: data.tempId
+                    });
+                }
+
+                const updatedMessage = await Message.findByIdAndUpdate(messageId, {
+                    encryptedContent,
+                    edited: true,
+                    editedAt: new Date()
+                });
+
+                // Include sender (so clients can decrypt direct edits like an
+                // incoming message) and groupId (so group screens can scope it).
+                const payload = {
+                    messageId,
+                    encryptedContent,
+                    editedAt: updatedMessage.editedAt,
+                    sender: { id: socket.userId, username: socket.username },
+                    messageType: message.messageType
+                };
+
+                if (message.messageType === 'group') {
+                    const group = await Group.findById(message.group);
+                    payload.groupId = message.group.toString();
+                    if (group) {
+                        group.members.forEach(memberId => {
+                            io.to(`user:${memberId.toString()}`).emit('message:edited', payload);
+                        });
+                    }
+                } else {
+                    // Direct: notify recipient and the sender socket
+                    io.to(`user:${message.recipient.toString()}`).emit('message:edited', payload);
+                    socket.emit('message:edited', payload);
+                }
+            } catch (error) {
+                console.error('Message edit error:', error);
+                socket.emit('message:error', {
+                    error: 'Failed to edit message',
+                    tempId: data.tempId
+                });
+            }
+        });
+
+        // Handle message delete (soft-delete)
+        socket.on('message:delete', async (data) => {
+            try {
+                const { messageId } = data;
+                const message = await Message.findById(messageId);
+
+                if (!message) {
+                    return socket.emit('message:error', {
+                        error: 'Message not found',
+                        tempId: data.tempId
+                    });
+                }
+
+                // Only the original sender may delete
+                if (message.sender.toString() !== socket.userId) {
+                    return socket.emit('message:error', {
+                        error: 'Unauthorized',
+                        tempId: data.tempId
+                    });
+                }
+
+                // Soft-delete: keep the record, clear the content
+                await Message.findByIdAndUpdate(messageId, {
+                    deleted: true,
+                    encryptedContent: ''
+                });
+
+                const payload = {
+                    messageId,
+                    sender: { id: socket.userId, username: socket.username },
+                    messageType: message.messageType
+                };
+
+                if (message.messageType === 'group') {
+                    const group = await Group.findById(message.group);
+                    payload.groupId = message.group.toString();
+                    if (group) {
+                        group.members.forEach(memberId => {
+                            io.to(`user:${memberId.toString()}`).emit('message:deleted', payload);
+                        });
+                    }
+                } else {
+                    // Direct: notify recipient and the sender socket
+                    io.to(`user:${message.recipient.toString()}`).emit('message:deleted', payload);
+                    socket.emit('message:deleted', payload);
+                }
+            } catch (error) {
+                console.error('Message delete error:', error);
+                socket.emit('message:error', {
+                    error: 'Failed to delete message',
+                    tempId: data.tempId
+                });
+            }
+        });
+
         // Handle disconnect
         socket.on('disconnect', async () => {
             console.log(`User disconnected: ${socket.username} (${socket.userId})`);

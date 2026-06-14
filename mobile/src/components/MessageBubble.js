@@ -1,15 +1,56 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Surface, Text } from 'react-native-paper';
+import React, { useState } from 'react';
+import { View, StyleSheet, Pressable } from 'react-native';
+import { Surface, Text, Menu } from 'react-native-paper';
 import { format } from 'date-fns';
 
-const MessageBubble = ({ message, isOwnMessage, showSenderName = false }) => {
+const MessageBubble = ({
+    message,
+    isOwnMessage,
+    showSenderName = false,
+    onEdit,
+    onDelete
+}) => {
+    const [menuVisible, setMenuVisible] = useState(false);
+
     const formatTime = (timestamp) => {
         try {
             return format(new Date(timestamp), 'HH:mm');
         } catch {
             return '';
         }
+    };
+
+    // Only the user's own, non-deleted messages can be edited / deleted.
+    const canModify = isOwnMessage && !message.deleted && (onEdit || onDelete);
+
+    const handleLongPress = () => {
+        if (canModify) {
+            setMenuVisible(true);
+        }
+    };
+
+    const closeMenu = () => setMenuVisible(false);
+
+    const renderBody = () => {
+        if (message.deleted) {
+            return (
+                <Text style={[
+                    styles.deletedText,
+                    isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+                ]}>
+                    Message deleted
+                </Text>
+            );
+        }
+
+        return (
+            <Text style={[
+                styles.messageText,
+                isOwnMessage ? styles.ownMessageText : styles.otherMessageText
+            ]}>
+                {message.content}
+            </Text>
+        );
     };
 
     return (
@@ -21,36 +62,72 @@ const MessageBubble = ({ message, isOwnMessage, showSenderName = false }) => {
                 <Text style={styles.senderName}>{message.sender?.username}</Text>
             )}
 
-            <Surface style={[
-                styles.bubble,
-                isOwnMessage ? styles.ownBubble : styles.otherBubble
-            ]}>
-                <Text style={[
-                    styles.messageText,
-                    isOwnMessage ? styles.ownMessageText : styles.otherMessageText
-                ]}>
-                    {message.content}
-                </Text>
+            <Menu
+                visible={menuVisible}
+                onDismiss={closeMenu}
+                anchor={
+                    <Pressable
+                        onLongPress={handleLongPress}
+                        delayLongPress={300}
+                    >
+                        <Surface style={[
+                            styles.bubble,
+                            isOwnMessage ? styles.ownBubble : styles.otherBubble
+                        ]}>
+                            {renderBody()}
 
-                <View style={styles.metadata}>
-                    <Text style={[
-                        styles.timeText,
-                        isOwnMessage ? styles.ownTimeText : styles.otherTimeText
-                    ]}>
-                        {formatTime(message.timestamp)}
-                    </Text>
+                            <View style={styles.metadata}>
+                                {message.edited && !message.deleted && (
+                                    <Text style={[
+                                        styles.editedText,
+                                        isOwnMessage ? styles.ownTimeText : styles.otherTimeText
+                                    ]}>
+                                        (edited)
+                                    </Text>
+                                )}
 
-                    {isOwnMessage && (
-                        <Text style={styles.statusIcon}>
-                            {message.sending && '○'}
-                            {message.sent && '✓'}
-                            {message.delivered && '✓✓'}
-                            {message.read && '✓✓'}
-                            {message.failed && '!'}
-                        </Text>
-                    )}
-                </View>
-            </Surface>
+                                <Text style={[
+                                    styles.timeText,
+                                    isOwnMessage ? styles.ownTimeText : styles.otherTimeText
+                                ]}>
+                                    {formatTime(message.timestamp)}
+                                </Text>
+
+                                {isOwnMessage && !message.deleted && (
+                                    <Text style={styles.statusIcon}>
+                                        {message.sending && '○'}
+                                        {message.sent && '✓'}
+                                        {message.delivered && '✓✓'}
+                                        {message.read && '✓✓'}
+                                        {message.failed && '!'}
+                                    </Text>
+                                )}
+                            </View>
+                        </Surface>
+                    </Pressable>
+                }
+            >
+                {onEdit && (
+                    <Menu.Item
+                        onPress={() => {
+                            closeMenu();
+                            onEdit(message);
+                        }}
+                        title="Edit"
+                        leadingIcon="pencil"
+                    />
+                )}
+                {onDelete && (
+                    <Menu.Item
+                        onPress={() => {
+                            closeMenu();
+                            onDelete(message);
+                        }}
+                        title="Delete"
+                        leadingIcon="delete"
+                    />
+                )}
+            </Menu>
         </View>
     );
 };
@@ -90,6 +167,12 @@ const styles = StyleSheet.create({
         fontSize: 15,
         lineHeight: 20
     },
+    deletedText: {
+        fontSize: 15,
+        lineHeight: 20,
+        fontStyle: 'italic',
+        opacity: 0.7
+    },
     ownMessageText: {
         color: '#fff'
     },
@@ -101,6 +184,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 4,
         justifyContent: 'flex-end'
+    },
+    editedText: {
+        fontSize: 11,
+        fontStyle: 'italic',
+        marginRight: 4
     },
     timeText: {
         fontSize: 11

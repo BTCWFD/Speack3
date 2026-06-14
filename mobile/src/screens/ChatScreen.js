@@ -4,13 +4,16 @@ import {
     FlatList,
     StyleSheet,
     KeyboardAvoidingView,
-    Platform
+    Platform,
+    Alert
 } from 'react-native';
 import {
     Appbar,
     Text,
-    ActivityIndicator
+    ActivityIndicator,
+    TouchableRipple
 } from 'react-native-paper';
+import { formatDistanceToNow } from 'date-fns';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ApiService from '../services/ApiService';
@@ -25,6 +28,9 @@ const ChatScreen = ({ route, navigation }) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [typingStatus, setTypingStatus] = useState(false);
+    const [editingMessage, setEditingMessage] = useState(null);
+    const [online, setOnline] = useState(!!contactOnline);
+    const [lastSeen, setLastSeen] = useState(null);
 
     const flatListRef = useRef(null);
     const typingTimeoutRef = useRef(null);
@@ -42,11 +48,23 @@ const ChatScreen = ({ route, navigation }) => {
         // Listen for read receipts
         const unsubscribeRead = SocketService.onEvent('message:read', handleMessageRead);
 
+        // Listen for edit / delete broadcasts
+        const unsubscribeEdited = SocketService.onMessageEdited(handleMessageEdited);
+        const unsubscribeDeleted = SocketService.onMessageDeleted(handleMessageDeleted);
+
+        // Listen for presence changes
+        const unsubscribeOnline = SocketService.onEvent('user:online', handleUserOnline);
+        const unsubscribeOffline = SocketService.onEvent('user:offline', handleUserOffline);
+
         return () => {
             unsubscribe();
             unsubscribeTyping();
             unsubscribeTypingStop();
             unsubscribeRead();
+            unsubscribeEdited();
+            unsubscribeDeleted();
+            unsubscribeOnline();
+            unsubscribeOffline();
         };
     }, [contactId]);
 
@@ -122,6 +140,134 @@ const ChatScreen = ({ route, navigation }) => {
         ));
     };
 
+    const matchesId = (msg, messageId) => {
+        const id = msg.id ?? msg._id;
+        return id?.toString() === messageId?.toString();
+    };
+
+    const handleMessageEdited = (data) => {
+        setMessages(prev => prev.map(msg =>
+            matchesId(msg, data.messageId)
+                ? {
+                    ...msg,
+                    content: data.content ?? msg.content,
+                    edited: true,
+                    editedAt: data.editedAt
+                }
+                : msg
+        ));
+
+        // Update local cache
+        StorageService.updateMessage(contactId, data.messageId, (msg) => ({
+            ...msg,
+            content: data.content ?? msg.content,
+            edited: true,
+            editedAt: data.editedAt
+        }));
+    };
+
+    const handleMessageDeleted = (data) => {
+        setMessages(prev => prev.map(msg =>
+            matchesId(msg, data.messageId)
+                ? { ...msg, deleted: true, content: '' }
+                : msg
+        ));
+
+        StorageService.markMessageDeleted(contactId, data.messageId);
+    };
+
+    const handleUserOnline = (data) => {
+        if (data.userId === contactId) {
+            setOnline(true);
+        }
+    };
+
+    const handleUserOffline = (data) => {
+        if (data.userId === contactId) {
+            setOnline(false);
+            if (data.lastSeen) {
+                setLastSeen(data.lastSeen);
+            }
+        }
+    };
+
+    const handleEdit = (message) => {
+        setEditingMessage(message);
+    };
+
+    const handleDelete = (message) => {
+        Alert.alert(
+            'Delete message',
+            'Are you sure you want to delete this message?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                        const messageId = message.id ?? message._id;
+                        try {
+                            SocketService.deleteMessage(messageId);
+                        } catch (error) {
+                            console.error('Delete message error:', error);
+                        }
+
+                        // Optimistic update
+                        setMessages(prev => prev.map(msg =>
+                            matchesId(msg, messageId)
+                                ? { ...msg, deleted: true, content: '' }
+                                : msg
+                        ));
+                        StorageService.markMessageDeleted(contactId, messageId);
+                    }
+                }
+            ]
+        );
+    };
+
+    const submitEdit = async (newText) => {
+        const target = editingMessage;
+        setEditingMessage(null);
+
+        if (!target) {
+            return;
+        }
+
+        const messageId = target.id ?? target._id;
+
+        // Optimistic update
+        setMessages(prev => prev.map(msg =>
+            matchesId(msg, messageId)
+                ? { ...msg, content: newText, edited: true }
+                : msg
+        ));
+
+        try {
+            await SocketService.editMessage(contactId, messageId, newText, false);
+            StorageService.updateMessage(contactId, messageId, (msg) => ({
+                ...msg,
+                content: newText,
+                edited: true
+            }));
+        } catch (error) {
+            console.error('Edit message error:', error);
+        }
+    };
+
+    const getSubtitle = () => {
+        if (online) {
+            return 'Online';
+        }
+        if (lastSeen) {
+            try {
+                return `last seen ${formatDistanceToNow(new Date(lastSeen), { addSuffix: true })}`;
+            } catch {
+                return 'Offline';
+            }
+        }
+        return 'Offline';
+    };
+
     const sendMessage = async (text) => {
         const tempId = Date.now().toString();
 
@@ -174,6 +320,8 @@ const ChatScreen = ({ route, navigation }) => {
         <MessageBubble
             message={item}
             isOwnMessage={item.sender.id === user.id}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
         />
     );
 
@@ -185,10 +333,18 @@ const ChatScreen = ({ route, navigation }) => {
         >
             <Appbar.Header>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
-                <Appbar.Content
-                    title={contactName}
-                    subtitle={contactOnline ? 'Online' : 'Offline'}
-                />
+                <TouchableRipple
+                    style={styles.headerContent}
+                    onPress={() => navigation.navigate('Profile', {
+                        userId: contactId,
+                        username: contactName
+                    })}
+                >
+                    <Appbar.Content
+                        title={contactName}
+                        subtitle={getSubtitle()}
+                    />
+                </TouchableRipple>
             </Appbar.Header>
 
             <View style={styles.messagesContainer}>
@@ -215,8 +371,10 @@ const ChatScreen = ({ route, navigation }) => {
             </View>
 
             <ChatInput
-                onSend={sendMessage}
+                onSend={editingMessage ? submitEdit : sendMessage}
                 onTyping={handleTyping}
+                editing={editingMessage}
+                onCancelEdit={() => setEditingMessage(null)}
             />
         </KeyboardAvoidingView>
     );
@@ -226,6 +384,9 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f5f5f5'
+    },
+    headerContent: {
+        flex: 1
     },
     messagesContainer: {
         flex: 1

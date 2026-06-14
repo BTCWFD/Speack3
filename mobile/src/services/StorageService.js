@@ -149,6 +149,37 @@ class Storage {
         }
     }
 
+    // Update a cached message (e.g. after an edit). The updater receives the
+    // existing message and returns the new message object.
+    async updateMessage(chatId, messageId, updater) {
+        try {
+            const key = `messages_${chatId}`;
+            const existing = await AsyncStorage.getItem(key);
+            if (!existing) {
+                return;
+            }
+
+            const messages = JSON.parse(existing);
+            const next = messages.map(msg => {
+                const id = msg.id ?? msg._id;
+                return id?.toString() === messageId?.toString() ? updater(msg) : msg;
+            });
+
+            await AsyncStorage.setItem(key, JSON.stringify(next));
+        } catch (error) {
+            console.error('Update message error:', error);
+        }
+    }
+
+    // Mark a cached message as deleted (keeps it in place as a tombstone)
+    async markMessageDeleted(chatId, messageId) {
+        await this.updateMessage(chatId, messageId, (msg) => ({
+            ...msg,
+            deleted: true,
+            content: ''
+        }));
+    }
+
     async clearMessages(chatId) {
         try {
             const key = `messages_${chatId}`;

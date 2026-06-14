@@ -9,6 +9,8 @@ class SocketService {
         this.connected = false;
         this.messageHandlers = new Set();
         this.statusHandlers = new Set();
+        this.editedHandlers = new Set();
+        this.deletedHandlers = new Set();
     }
 
     // Connect to WebSocket server
@@ -114,6 +116,61 @@ class SocketService {
             this.notifyEvent('message:error', data);
         });
 
+        // Edit / delete events
+        this.socket.on('message:edited', async (data) => {
+            try {
+                let content = null;
+
+                // For direct messages the server forwards the same Signal-encrypted
+                // payload used for incoming messages. Decrypt it the same way so
+                // screens receive plaintext. Group edits are forwarded as the
+                // simplified plaintext JSON ({ message }) used by sendGroupMessage.
+                if (data.sender?.id && data.encryptedContent) {
+                    try {
+                        content = await SignalService.decryptMessage(
+                            data.sender.id,
+                            JSON.parse(data.encryptedContent)
+                        );
+                    } catch (err) {
+                        // Fallback: group / plaintext payload
+                        try {
+                            const parsed = JSON.parse(data.encryptedContent);
+                            content = parsed.message ?? null;
+                        } catch {
+                            content = null;
+                        }
+                    }
+                } else if (data.encryptedContent) {
+                    try {
+                        const parsed = JSON.parse(data.encryptedContent);
+                        content = parsed.message ?? null;
+                    } catch {
+                        content = null;
+                    }
+                }
+
+                const payload = {
+                    messageId: data.messageId,
+                    content,
+                    editedAt: data.editedAt,
+                    groupId: data.groupId
+                };
+
+                this.notifyMessageEdited(payload);
+                console.log('✏️ Message edited');
+            } catch (error) {
+                console.error('Error processing edited message:', error);
+            }
+        });
+
+        this.socket.on('message:deleted', (data) => {
+            this.notifyMessageDeleted({
+                messageId: data.messageId,
+                groupId: data.groupId
+            });
+            console.log('🗑️ Message deleted');
+        });
+
         // User status events
         this.socket.on('user:online', (data) => {
             this.notifyEvent('user:online', data);
@@ -181,6 +238,47 @@ class SocketService {
         }
     }
 
+    // Edit a previously sent message
+    async editMessage(recipientOrGroupId, messageId, newText, isGroup = false) {
+        try {
+            if (!this.connected) {
+                throw new Error('Socket not connected');
+            }
+
+            let encryptedContent;
+
+            if (isGroup) {
+                // Same simplified approach as sendGroupMessage
+                encryptedContent = JSON.stringify({ message: newText });
+            } else {
+                // Encrypt the same way as sendDirectMessage
+                const encrypted = await SignalService.encryptMessage(recipientOrGroupId, newText);
+                encryptedContent = JSON.stringify(encrypted);
+            }
+
+            this.socket.emit('message:edit', {
+                messageId,
+                encryptedContent,
+                tempId: messageId
+            });
+
+            console.log('✏️ Message edit sent');
+        } catch (error) {
+            console.error('Edit message error:', error);
+            throw error;
+        }
+    }
+
+    // Delete a previously sent message
+    deleteMessage(messageId) {
+        if (!this.connected) {
+            throw new Error('Socket not connected');
+        }
+
+        this.socket.emit('message:delete', { messageId });
+        console.log('🗑️ Message delete sent');
+    }
+
     // Typing indicators
     sendTypingStart(recipientId = null, groupId = null) {
         if (this.connected) {
@@ -212,6 +310,17 @@ class SocketService {
         return () => this.socket?.off(eventName, handler);
     }
 
+    // Edit / delete subscriptions (delivered with decrypted/plaintext content)
+    onMessageEdited(handler) {
+        this.editedHandlers.add(handler);
+        return () => this.editedHandlers.delete(handler);
+    }
+
+    onMessageDeleted(handler) {
+        this.deletedHandlers.add(handler);
+        return () => this.deletedHandlers.delete(handler);
+    }
+
     // Notify message handlers
     notifyMessageReceived(message) {
         this.messageHandlers.forEach(handler => {
@@ -225,6 +334,26 @@ class SocketService {
 
     notifyEvent(eventName, data) {
         // This will be handled by component-specific listeners
+    }
+
+    notifyMessageEdited(payload) {
+        this.editedHandlers.forEach(handler => {
+            try {
+                handler(payload);
+            } catch (error) {
+                console.error('Edited handler error:', error);
+            }
+        });
+    }
+
+    notifyMessageDeleted(payload) {
+        this.deletedHandlers.forEach(handler => {
+            try {
+                handler(payload);
+            } catch (error) {
+                console.error('Deleted handler error:', error);
+            }
+        });
     }
 
     notifyStatusChange(status) {

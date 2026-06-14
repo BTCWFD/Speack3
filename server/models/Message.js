@@ -19,8 +19,17 @@ class MessageModel {
     }
 
     async findByIdAndUpdate(id, update) {
-        await messages.update({ _id: id }, { $set: update });
+        // Forward Mongo-style modifiers ($pull, $addToSet, $set, ...) straight to
+        // NeDB; wrap plain field maps in $set.
+        const hasOperators = Object.keys(update).some((key) => key.startsWith('$'));
+        const modifier = hasOperators ? update : { $set: update };
+
+        await messages.update({ _id: id }, modifier);
         return await this.findById(id);
+    }
+
+    async deleteOne(query) {
+        return await messages.remove(query);
     }
 
     async populate(results, field, select) {
