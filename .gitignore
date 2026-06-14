@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# NeDB runtime data (must never be committed)
+server/data/*.db
+server/data/*.db~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Build output
+mobile/android/app/build/
+mobile/android/build/
+mobile/ios/build/
+*.apk
+*.aab
+
+# Misc
+.DS_Store
+Thumbs.db
+*.keystore
+!debug.keystore

@@ -1,0 +1,27 @@
+# Local one-command run of the Speack3 server.
+#   docker compose up --build
+# Then the API + WebSocket are on http://localhost:3000 (health: /health).
+#
+# For real use, replace the JWT secrets below with strong random values
+# (e.g. `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`).
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: speack3-server
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      JWT_SECRET: "change_me_local_dev_secret"
+      JWT_REFRESH_SECRET: "change_me_local_dev_refresh_secret"
+      ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:19006"
+    volumes:
+      # Persist the NeDB data across container restarts.
+      - speack3_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  speack3_data:
