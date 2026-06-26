@@ -223,6 +223,10 @@ class SocketService {
                 throw new Error('Socket not connected');
             }
 
+            // Ensure a Signal session exists before encrypting (builds one from
+            // the recipient's published prekeys on first contact).
+            await this.ensureSession(recipientId);
+
             // Encrypt message
             const encrypted = await SignalService.encryptMessage(recipientId, message);
 
@@ -339,6 +343,7 @@ class SocketService {
                 encryptedContent = GroupCryptoService.encrypt(newText, key);
             } else {
                 // Encrypt the same way as sendDirectMessage
+                await this.ensureSession(recipientOrGroupId);
                 const encrypted = await SignalService.encryptMessage(recipientOrGroupId, newText);
                 encryptedContent = JSON.stringify(encrypted);
             }
