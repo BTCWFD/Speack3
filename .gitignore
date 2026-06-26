@@ -24,6 +24,10 @@ mobile/ios/build/
 # Agent/team internal files
 .claude/
 
+# Editor / local machine config
+.vscode/
+mobile/android/local.properties
+
 # Misc
 .DS_Store
 Thumbs.db
