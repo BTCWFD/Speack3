@@ -14,7 +14,8 @@ import {
     TouchableRipple,
     useTheme
 } from 'react-native-paper';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isToday, isYesterday, isSameDay, format } from 'date-fns';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ApiService from '../services/ApiService';
@@ -318,13 +319,84 @@ const ChatScreen = ({ route, navigation }) => {
         }
     };
 
-    const renderMessage = ({ item }) => (
-        <MessageBubble
-            message={item}
-            isOwnMessage={item.sender.id === user.id}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-        />
+    // Build a list that interleaves day-separator items between messages.
+    const buildListData = () => {
+        const data = [];
+        let prevDate = null;
+        messages.forEach((msg) => {
+            const ts = msg.timestamp;
+            const d = ts ? new Date(ts) : null;
+            const valid = d && !isNaN(d.getTime());
+            if (valid && (!prevDate || !isSameDay(d, prevDate))) {
+                data.push({
+                    type: 'separator',
+                    id: `sep-${d.toDateString()}`,
+                    date: d
+                });
+                prevDate = d;
+            }
+            data.push({ type: 'message', id: msg.id ?? msg._id, message: msg });
+        });
+        return data;
+    };
+
+    const formatDayLabel = (date) => {
+        if (isToday(date)) return 'Hoy';
+        if (isYesterday(date)) return 'Ayer';
+        try {
+            return format(date, 'PPP');
+        } catch {
+            return '';
+        }
+    };
+
+    const renderItem = ({ item }) => {
+        if (item.type === 'separator') {
+            return (
+                <View style={styles.separatorRow}>
+                    <View
+                        style={[
+                            styles.separatorChip,
+                            { backgroundColor: theme.colors.surfaceVariant }
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.separatorText,
+                                { color: theme.colors.onSurfaceVariant }
+                            ]}
+                        >
+                            {formatDayLabel(item.date)}
+                        </Text>
+                    </View>
+                </View>
+            );
+        }
+
+        return (
+            <MessageBubble
+                message={item.message}
+                isOwnMessage={item.message.sender.id === user.id}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+            />
+        );
+    };
+
+    const renderEmpty = () => (
+        <View style={styles.emptyContainer}>
+            <Icon
+                name="lock-outline"
+                size={48}
+                color={theme.colors.onSurfaceVariant}
+            />
+            <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>
+                Esta conversación está cifrada de extremo a extremo.
+            </Text>
+            <Text style={[styles.emptySubtext, { color: theme.colors.onSurfaceVariant }]}>
+                Saluda 👋
+            </Text>
+        </View>
     );
 
     return (
@@ -357,17 +429,30 @@ const ChatScreen = ({ route, navigation }) => {
                 ) : (
                     <FlatList
                         ref={flatListRef}
-                        data={messages}
-                        renderItem={renderMessage}
-                        keyExtractor={(item) => item.id?.toString() || item._id?.toString()}
-                        contentContainerStyle={styles.messagesList}
-                        onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+                        data={buildListData()}
+                        renderItem={renderItem}
+                        keyExtractor={(item) => item.id?.toString()}
+                        contentContainerStyle={[
+                            styles.messagesList,
+                            messages.length === 0 && styles.messagesListEmpty
+                        ]}
+                        ListEmptyComponent={renderEmpty}
+                        onContentSizeChange={() =>
+                            messages.length > 0 && flatListRef.current?.scrollToEnd()
+                        }
                     />
                 )}
 
                 {typingStatus && (
-                    <View style={styles.typingContainer}>
-                        <Text style={styles.typingText}>{contactName} is typing...</Text>
+                    <View
+                        style={[
+                            styles.typingContainer,
+                            { backgroundColor: theme.colors.elevation?.level2 || theme.colors.surface }
+                        ]}
+                    >
+                        <Text style={[styles.typingText, { color: theme.colors.onSurfaceVariant }]}>
+                            {contactName} is typing...
+                        </Text>
                     </View>
                 )}
             </View>
@@ -384,8 +469,7 @@ const ChatScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: '#f5f5f5'
+        flex: 1
     },
     headerContent: {
         flex: 1
@@ -402,15 +486,45 @@ const styles = StyleSheet.create({
         padding: 16,
         paddingBottom: 8
     },
+    messagesListEmpty: {
+        flexGrow: 1
+    },
+    separatorRow: {
+        alignItems: 'center',
+        marginVertical: 8
+    },
+    separatorChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12
+    },
+    separatorText: {
+        fontSize: 12,
+        fontWeight: '500'
+    },
+    emptyContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 32
+    },
+    emptyText: {
+        fontSize: 15,
+        textAlign: 'center',
+        marginTop: 16
+    },
+    emptySubtext: {
+        fontSize: 14,
+        textAlign: 'center',
+        marginTop: 4
+    },
     typingContainer: {
         paddingHorizontal: 16,
-        paddingVertical: 8,
-        backgroundColor: '#fff'
+        paddingVertical: 8
     },
     typingText: {
         fontSize: 12,
-        fontStyle: 'italic',
-        color: '#666'
+        fontStyle: 'italic'
     }
 });
 

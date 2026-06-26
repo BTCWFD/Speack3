@@ -19,6 +19,10 @@ const SIGNAL_SESSION_PREFIX = 'signal_session_';
 const SIGNAL_PREKEY_PREFIX = 'signal_prekey_';
 const SIGNAL_SIGNED_PREKEY_PREFIX = 'signal_signed_prekey_';
 
+// AsyncStorage key holding the persisted offline outgoing-message queue (a JSON
+// array). Items are re-sent once the socket reconnects (see SocketService).
+const OUTGOING_QUEUE_KEY = 'outgoing_queue';
+
 class Storage {
     // Auth Token Management
     //
@@ -528,6 +532,75 @@ class Storage {
             await AsyncStorage.removeItem(SIGNAL_SIGNED_PREKEY_PREFIX + keyId);
         } catch (error) {
             console.error('Remove signal signed prekey error:', error);
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Offline outgoing message queue
+    //
+    // Messages composed while the socket is disconnected (or whose emit fails)
+    // are persisted here as a JSON array under a single AsyncStorage key so they
+    // survive an app restart and can be re-sent once connectivity returns
+    // (see SocketService.flushQueue). Items are stored as plaintext metadata;
+    // the message body is re-encrypted at flush time via the normal Signal /
+    // group-key paths, so no ciphertext is persisted here.
+    //
+    // Item shape:
+    //   { tempId, kind: 'direct'|'group', targetId, text, queuedAt }
+    // ---------------------------------------------------------------------
+
+    async getOutgoingQueue() {
+        try {
+            const data = await AsyncStorage.getItem(OUTGOING_QUEUE_KEY);
+            if (!data) {
+                return [];
+            }
+            const parsed = JSON.parse(data);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            console.error('Get outgoing queue error:', error);
+            return [];
+        }
+    }
+
+    async enqueueOutgoing(item) {
+        try {
+            const queue = await this.getOutgoingQueue();
+            // De-duplicate by tempId so a retry never inserts the same message
+            // twice (e.g. if the UI re-sends an already-queued item).
+            const next = queue.filter(
+                (q) => q && q.tempId?.toString() !== item?.tempId?.toString()
+            );
+            next.push({
+                tempId: item.tempId,
+                kind: item.kind,
+                targetId: item.targetId,
+                text: item.text,
+                queuedAt: item.queuedAt ?? Date.now()
+            });
+            await AsyncStorage.setItem(OUTGOING_QUEUE_KEY, JSON.stringify(next));
+        } catch (error) {
+            console.error('Enqueue outgoing error:', error);
+        }
+    }
+
+    async removeFromQueue(tempId) {
+        try {
+            const queue = await this.getOutgoingQueue();
+            const next = queue.filter(
+                (q) => q && q.tempId?.toString() !== tempId?.toString()
+            );
+            await AsyncStorage.setItem(OUTGOING_QUEUE_KEY, JSON.stringify(next));
+        } catch (error) {
+            console.error('Remove from queue error:', error);
+        }
+    }
+
+    async clearOutgoingQueue() {
+        try {
+            await AsyncStorage.removeItem(OUTGOING_QUEUE_KEY);
+        } catch (error) {
+            console.error('Clear outgoing queue error:', error);
         }
     }
 }

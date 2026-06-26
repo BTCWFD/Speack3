@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { TextInput, IconButton, Text } from 'react-native-paper';
+import { TextInput, IconButton, Text, useTheme } from 'react-native-paper';
 
 const ChatInput = ({
     onSend,
@@ -11,6 +11,8 @@ const ChatInput = ({
 }) => {
     const [message, setMessage] = useState('');
     const typingTimeoutRef = useRef(null);
+    const { colors } = useTheme();
+    const surface = colors.elevation?.level2 || colors.surface;
 
     // When an edit starts, pre-fill the input with the text being edited.
     useEffect(() => {
@@ -66,12 +68,33 @@ const ChatInput = ({
     };
 
     return (
-        <View style={styles.container}>
+        <View
+            style={[
+                styles.container,
+                {
+                    backgroundColor: surface,
+                    borderTopColor: colors.outlineVariant || colors.outline
+                }
+            ]}
+        >
             {editing && (
-                <View style={styles.editBanner}>
+                <View
+                    style={[
+                        styles.editBanner,
+                        {
+                            borderLeftColor: colors.primary,
+                            backgroundColor: colors.surfaceVariant
+                        }
+                    ]}
+                >
                     <View style={styles.editBannerText}>
-                        <Text style={styles.editLabel}>Editing message</Text>
-                        <Text style={styles.editPreview} numberOfLines={1}>
+                        <Text style={[styles.editLabel, { color: colors.primary }]}>
+                            Editing message
+                        </Text>
+                        <Text
+                            style={[styles.editPreview, { color: colors.onSurfaceVariant }]}
+                            numberOfLines={1}
+                        >
                             {editing.content}
                         </Text>
                     </View>
@@ -90,13 +113,13 @@ const ChatInput = ({
                 mode="outlined"
                 multiline
                 maxLength={1000}
-                style={styles.input}
+                style={[styles.input, { backgroundColor: surface }]}
                 right={
                     <TextInput.Icon
                         icon={editing ? 'check' : 'send'}
                         disabled={!message.trim()}
                         onPress={handleSend}
-                        color={message.trim() ? '#6200ee' : '#ccc'}
+                        color={message.trim() ? colors.primary : colors.onSurfaceDisabled}
                     />
                 }
             />
@@ -107,13 +130,10 @@ const ChatInput = ({
 const styles = StyleSheet.create({
     container: {
         padding: 8,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#e0e0e0'
+        borderTopWidth: 1
     },
     input: {
-        maxHeight: 100,
-        backgroundColor: '#fff'
+        maxHeight: 100
     },
     editBanner: {
         flexDirection: 'row',
@@ -121,8 +141,6 @@ const styles = StyleSheet.create({
         paddingLeft: 12,
         marginBottom: 4,
         borderLeftWidth: 3,
-        borderLeftColor: '#6200ee',
-        backgroundColor: '#f3effc',
         borderRadius: 4
     },
     editBannerText: {
@@ -130,12 +148,10 @@ const styles = StyleSheet.create({
     },
     editLabel: {
         fontSize: 12,
-        fontWeight: 'bold',
-        color: '#6200ee'
+        fontWeight: 'bold'
     },
     editPreview: {
-        fontSize: 13,
-        color: '#666'
+        fontSize: 13
     }
 });
 

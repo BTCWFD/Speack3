@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Surface, Text, Menu } from 'react-native-paper';
+import { Surface, Text, Menu, useTheme } from 'react-native-paper';
 import { format } from 'date-fns';
 
 const MessageBubble = ({
@@ -11,6 +11,16 @@ const MessageBubble = ({
     onDelete
 }) => {
     const [menuVisible, setMenuVisible] = useState(false);
+    const theme = useTheme();
+    const { colors } = theme;
+
+    // Theme-aware colors: own bubble uses primary, other uses an elevated surface.
+    const otherBubbleColor =
+        colors.elevation?.level2 || colors.surfaceVariant;
+    const ownTextColor = colors.onPrimary;
+    const otherTextColor = colors.onSurface;
+    const ownMetaColor = colors.onPrimary;
+    const otherMetaColor = colors.onSurfaceVariant;
 
     const formatTime = (timestamp) => {
         try {
@@ -31,23 +41,20 @@ const MessageBubble = ({
 
     const closeMenu = () => setMenuVisible(false);
 
+    const textColor = isOwnMessage ? ownTextColor : otherTextColor;
+    const metaColor = isOwnMessage ? ownMetaColor : otherMetaColor;
+
     const renderBody = () => {
         if (message.deleted) {
             return (
-                <Text style={[
-                    styles.deletedText,
-                    isOwnMessage ? styles.ownMessageText : styles.otherMessageText
-                ]}>
+                <Text style={[styles.deletedText, { color: textColor }]}>
                     Message deleted
                 </Text>
             );
         }
 
         return (
-            <Text style={[
-                styles.messageText,
-                isOwnMessage ? styles.ownMessageText : styles.otherMessageText
-            ]}>
+            <Text style={[styles.messageText, { color: textColor }]}>
                 {message.content}
             </Text>
         );
@@ -59,7 +66,9 @@ const MessageBubble = ({
             isOwnMessage ? styles.ownMessageContainer : styles.otherMessageContainer
         ]}>
             {!isOwnMessage && showSenderName && (
-                <Text style={styles.senderName}>{message.sender?.username}</Text>
+                <Text style={[styles.senderName, { color: colors.onSurfaceVariant }]}>
+                    {message.sender?.username}
+                </Text>
             )}
 
             <Menu
@@ -70,17 +79,24 @@ const MessageBubble = ({
                         onLongPress={handleLongPress}
                         delayLongPress={300}
                     >
-                        <Surface style={[
-                            styles.bubble,
-                            isOwnMessage ? styles.ownBubble : styles.otherBubble
-                        ]}>
+                        <Surface
+                            style={[
+                                styles.bubble,
+                                isOwnMessage ? styles.ownBubble : styles.otherBubble,
+                                {
+                                    backgroundColor: isOwnMessage
+                                        ? colors.primary
+                                        : otherBubbleColor
+                                }
+                            ]}
+                        >
                             {renderBody()}
 
                             <View style={styles.metadata}>
                                 {message.edited && !message.deleted && (
                                     <Text style={[
                                         styles.editedText,
-                                        isOwnMessage ? styles.ownTimeText : styles.otherTimeText
+                                        { color: metaColor, opacity: 0.7 }
                                     ]}>
                                         (edited)
                                     </Text>
@@ -88,13 +104,16 @@ const MessageBubble = ({
 
                                 <Text style={[
                                     styles.timeText,
-                                    isOwnMessage ? styles.ownTimeText : styles.otherTimeText
+                                    { color: metaColor, opacity: 0.7 }
                                 ]}>
                                     {formatTime(message.timestamp)}
                                 </Text>
 
                                 {isOwnMessage && !message.deleted && (
-                                    <Text style={styles.statusIcon}>
+                                    <Text style={[
+                                        styles.statusIcon,
+                                        { color: ownMetaColor, opacity: 0.9 }
+                                    ]}>
                                         {message.sending && '○'}
                                         {message.sent && '✓'}
                                         {message.delivered && '✓✓'}
@@ -145,7 +164,6 @@ const styles = StyleSheet.create({
     },
     senderName: {
         fontSize: 12,
-        color: '#666',
         marginBottom: 4,
         marginLeft: 12
     },
@@ -156,11 +174,9 @@ const styles = StyleSheet.create({
         elevation: 1
     },
     ownBubble: {
-        backgroundColor: '#6200ee',
         borderBottomRightRadius: 4
     },
     otherBubble: {
-        backgroundColor: '#fff',
         borderBottomLeftRadius: 4
     },
     messageText: {
@@ -172,12 +188,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         fontStyle: 'italic',
         opacity: 0.7
-    },
-    ownMessageText: {
-        color: '#fff'
-    },
-    otherMessageText: {
-        color: '#000'
     },
     metadata: {
         flexDirection: 'row',
@@ -193,15 +203,8 @@ const styles = StyleSheet.create({
     timeText: {
         fontSize: 11
     },
-    ownTimeText: {
-        color: 'rgba(255, 255, 255, 0.7)'
-    },
-    otherTimeText: {
-        color: '#999'
-    },
     statusIcon: {
         fontSize: 12,
-        color: 'rgba(255, 255, 255, 0.9)',
         marginLeft: 4
     }
 });

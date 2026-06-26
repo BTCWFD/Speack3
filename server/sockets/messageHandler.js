@@ -60,6 +60,57 @@ const setupSocketHandlers = (io) => {
         // Join user to their personal room
         socket.join(`user:${socket.userId}`);
 
+        // Flush undelivered DIRECT messages on (re)connect.
+        // While the recipient was offline, message:direct stored messages with
+        // delivered:false and never retried, so they were silently stuck. Now
+        // that this user is back online we replay them in chronological order,
+        // using the SAME payload shape as the live message:direct emit, and mark
+        // each delivered once re-emitted. Scope is DIRECT messages only: group
+        // messages have no `recipient` field and are out of scope here.
+        try {
+            const pending = await Message.findUndelivered(socket.userId);
+            // Cache sender id -> username to avoid repeated lookups when a
+            // single sender left several queued messages.
+            const usernameCache = new Map();
+
+            for (const message of pending) {
+                try {
+                    const senderId = message.sender;
+                    let senderUsername = usernameCache.get(senderId);
+
+                    if (senderUsername === undefined) {
+                        const senderUser = await User.findById(senderId);
+                        senderUsername = senderUser ? senderUser.username : null;
+                        usernameCache.set(senderId, senderUsername);
+                    }
+
+                    io.to(`user:${socket.userId}`).emit('message:receive', {
+                        id: message._id,
+                        sender: {
+                            id: senderId,
+                            username: senderUsername
+                        },
+                        encryptedContent: message.encryptedContent,
+                        timestamp: message.createdAt,
+                        messageType: 'direct'
+                    });
+
+                    // Mark delivered after the emit. The client dedupes by `id`,
+                    // so flipping this flag is enough to never resend it.
+                    await Message.findByIdAndUpdate(message._id, {
+                        delivered: true,
+                        deliveredAt: new Date()
+                    });
+                } catch (msgError) {
+                    // Skip this message but keep flushing the rest.
+                    console.error('Undelivered flush (single message) error:', msgError);
+                }
+            }
+        } catch (flushError) {
+            // Never let the flush tear down the connection.
+            console.error('Undelivered flush error:', flushError);
+        }
+
         // Handle direct message
         socket.on('message:direct', async (data) => {
             try {

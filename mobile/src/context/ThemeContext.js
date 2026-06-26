@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { useColorScheme } from 'react-native';
 import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
 import {
     DefaultTheme as NavLight,
@@ -22,9 +23,13 @@ export const PALETTES = {
 const ThemeContext = createContext(null);
 
 export const ThemeProvider = ({ children }) => {
-    const [mode, setMode] = useState('light');
+    // 'system' is the default for new installs; 'light' / 'dark' force a mode.
+    const [mode, setMode] = useState('system');
     const [palette, setPalette] = useState('violet');
     const [ready, setReady] = useState(false);
+
+    // OS-level color scheme ('light' | 'dark' | null), updates live.
+    const systemScheme = useColorScheme();
 
     useEffect(() => {
         (async () => {
@@ -33,7 +38,7 @@ export const ThemeProvider = ({ children }) => {
                     AsyncStorage.getItem(MODE_KEY),
                     AsyncStorage.getItem(PALETTE_KEY)
                 ]);
-                if (m === 'dark' || m === 'light') setMode(m);
+                if (m === 'dark' || m === 'light' || m === 'system') setMode(m);
                 if (p && PALETTES[p]) setPalette(p);
             } catch (e) {
                 // ignore
@@ -47,6 +52,7 @@ export const ThemeProvider = ({ children }) => {
         setMode(next);
         try { await AsyncStorage.setItem(MODE_KEY, next); } catch (e) { /* ignore */ }
     };
+    // Toggle cycles only between explicit light/dark (kept for back-compat).
     const toggleTheme = () => setThemeMode(mode === 'dark' ? 'light' : 'dark');
 
     const setThemePalette = async (key) => {
@@ -56,7 +62,9 @@ export const ThemeProvider = ({ children }) => {
     };
 
     const value = useMemo(() => {
-        const isDark = mode === 'dark';
+        const isDark = mode === 'system'
+            ? systemScheme === 'dark'
+            : mode === 'dark';
         const primary = PALETTES[palette][isDark ? 'dark' : 'light'];
 
         const base = isDark ? MD3DarkTheme : MD3LightTheme;
@@ -86,7 +94,7 @@ export const ThemeProvider = ({ children }) => {
             toggleTheme, setThemeMode, setThemePalette,
             palettes: PALETTES
         };
-    }, [mode, palette, ready]);
+    }, [mode, palette, ready, systemScheme]);
 
     return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };

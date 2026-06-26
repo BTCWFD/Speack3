@@ -7,6 +7,7 @@ import {
     Divider,
     Appbar,
     Switch,
+    SegmentedButtons,
     useTheme
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -17,7 +18,7 @@ import MirrorButton from '../components/MirrorButton';
 
 const SettingsScreen = () => {
     const { user, logout, updateAvatar } = useAuth();
-    const { isDark, toggleTheme, palette, setThemePalette, palettes } = useThemeMode();
+    const { isDark, mode, setThemeMode, palette, setThemePalette, palettes } = useThemeMode();
     const theme = useTheme();
 
     const [loggingOut, setLoggingOut] = useState(false);
@@ -136,11 +137,25 @@ const SettingsScreen = () => {
                 <List.Section>
                     <List.Subheader>Appearance</List.Subheader>
                     <List.Item
-                        title="Dark mode"
-                        description={isDark ? 'On' : 'Off'}
+                        title="Theme"
+                        description={
+                            mode === 'system'
+                                ? `System (${isDark ? 'Dark' : 'Light'})`
+                                : isDark ? 'Dark' : 'Light'
+                        }
                         left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
-                        right={() => <Switch value={isDark} onValueChange={toggleTheme} />}
                     />
+                    <View style={styles.segmentRow}>
+                        <SegmentedButtons
+                            value={mode}
+                            onValueChange={setThemeMode}
+                            buttons={[
+                                { value: 'light', label: 'Claro', icon: 'white-balance-sunny' },
+                                { value: 'dark', label: 'Oscuro', icon: 'moon-waning-crescent' },
+                                { value: 'system', label: 'Sistema', icon: 'cellphone' }
+                            ]}
+                        />
+                    </View>
                     <List.Item
                         title="Color theme"
                         description={palettes[palette]?.name}
@@ -271,6 +286,10 @@ const styles = StyleSheet.create({
     },
     username: { fontSize: 20, fontWeight: 'bold', marginTop: 12 },
     email: { fontSize: 14, marginTop: 4 },
+    segmentRow: {
+        paddingHorizontal: 16,
+        paddingBottom: 8
+    },
     swatchRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',

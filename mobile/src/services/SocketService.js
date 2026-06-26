@@ -13,6 +13,8 @@ class SocketService {
         this.statusHandlers = new Set();
         this.editedHandlers = new Set();
         this.deletedHandlers = new Set();
+        // Guards flushQueue() against overlapping/re-entrant runs.
+        this._flushing = false;
     }
 
     // Connect to WebSocket server
@@ -38,6 +40,8 @@ class SocketService {
                 this.socket.on('connect', () => {
                     console.log('✅ Socket connected');
                     this.connected = true;
+                    // Re-send anything queued while offline (fire-and-forget).
+                    this.flushQueue();
                     resolve(true);
                 });
 
@@ -64,6 +68,8 @@ class SocketService {
         this.socket.on('reconnect', (attemptNumber) => {
             console.log(`🔄 Socket reconnected after ${attemptNumber} attempts`);
             this.connected = true;
+            // Re-send anything queued while offline (fire-and-forget).
+            this.flushQueue();
             this.notifyStatusChange('connected');
         });
 
@@ -217,10 +223,30 @@ class SocketService {
     }
 
     // Send direct message
-    async sendDirectMessage(recipientId, message, tempId) {
+    //
+    // If the socket is offline (or the emit/encryption fails), the message is
+    // persisted to the offline queue instead of being thrown back to the UI, so
+    // the caller can leave it as "sending/pending" rather than "failed". It is
+    // re-sent automatically on (re)connect via flushQueue().
+    //
+    // `_fromQueue` is set internally by flushQueue() to prevent re-queueing on a
+    // failed retry (which would otherwise recurse / never drain).
+    async sendDirectMessage(recipientId, message, tempId, _fromQueue = false) {
         try {
             if (!this.connected) {
-                throw new Error('Socket not connected');
+                if (_fromQueue) {
+                    // Still offline during a flush: leave it queued, signal failure.
+                    throw new Error('Socket not connected');
+                }
+                await StorageService.enqueueOutgoing({
+                    tempId,
+                    kind: 'direct',
+                    targetId: recipientId,
+                    text: message,
+                    queuedAt: Date.now()
+                });
+                console.log('📥 message queued (offline)');
+                return;
             }
 
             // Ensure a Signal session exists before encrypting (builds one from
@@ -240,7 +266,19 @@ class SocketService {
             console.log('📤 Direct message sent');
         } catch (error) {
             console.error('Send direct message error:', error);
-            throw error;
+            if (_fromQueue) {
+                // Re-raise so flushQueue keeps the item queued for a later retry.
+                throw error;
+            }
+            // Don't lose the message: queue it for retry instead of failing.
+            await StorageService.enqueueOutgoing({
+                tempId,
+                kind: 'direct',
+                targetId: recipientId,
+                text: message,
+                queuedAt: Date.now()
+            });
+            console.log('📥 message queued (offline)');
         }
     }
 
@@ -294,10 +332,22 @@ class SocketService {
 
     // Send group message — encrypted with the shared group key (AES-256-CBC +
     // HMAC). The server only ever relays/stores the ciphertext.
-    async sendGroupMessage(groupId, message, tempId) {
+    async sendGroupMessage(groupId, message, tempId, _fromQueue = false) {
         try {
             if (!this.connected) {
-                throw new Error('Socket not connected');
+                if (_fromQueue) {
+                    // Still offline during a flush: leave it queued, signal failure.
+                    throw new Error('Socket not connected');
+                }
+                await StorageService.enqueueOutgoing({
+                    tempId,
+                    kind: 'group',
+                    targetId: groupId,
+                    text: message,
+                    queuedAt: Date.now()
+                });
+                console.log('📥 message queued (offline)');
+                return;
             }
 
             let key = await StorageService.getGroupKey(groupId);
@@ -324,7 +374,69 @@ class SocketService {
             console.log('📤 Group message sent (encrypted)');
         } catch (error) {
             console.error('Send group message error:', error);
-            throw error;
+            if (_fromQueue) {
+                // Re-raise so flushQueue keeps the item queued for a later retry.
+                throw error;
+            }
+            // Don't lose the message: queue it for retry instead of failing.
+            await StorageService.enqueueOutgoing({
+                tempId,
+                kind: 'group',
+                targetId: groupId,
+                text: message,
+                queuedAt: Date.now()
+            });
+            console.log('📥 message queued (offline)');
+        }
+    }
+
+    // Re-send any messages persisted in the offline queue, in order. Each item
+    // is sent through the normal (re-encrypting) send path; on success it is
+    // removed from the queue, on failure it is left in place for a later retry.
+    // Guarded by `_flushing` to avoid overlapping flushes (connect + reconnect),
+    // and aborts early if the socket goes offline mid-flush.
+    async flushQueue() {
+        if (this._flushing) {
+            return;
+        }
+        if (!this.connected) {
+            return;
+        }
+        this._flushing = true;
+        try {
+            const queue = await StorageService.getOutgoingQueue();
+            if (!queue.length) {
+                return;
+            }
+            console.log(`📤 Flushing ${queue.length} queued message(s)`);
+
+            for (const item of queue) {
+                if (!this.connected) {
+                    // Lost connection mid-flush: stop and keep the rest queued.
+                    break;
+                }
+                if (!item || !item.tempId) {
+                    continue;
+                }
+                try {
+                    if (item.kind === 'group') {
+                        await this.sendGroupMessage(item.targetId, item.text, item.tempId, true);
+                    } else {
+                        await this.sendDirectMessage(item.targetId, item.text, item.tempId, true);
+                    }
+                    // Sent successfully: drop it from the queue.
+                    await StorageService.removeFromQueue(item.tempId);
+                } catch (error) {
+                    // Still failing (e.g. offline again): leave this item queued
+                    // and stop draining for now.
+                    console.error('Flush queue item error:', error);
+                    break;
+                }
+            }
+        } catch (error) {
+            console.error('Flush queue error:', error);
+        } finally {
+            this._flushing = false;
         }
     }
 

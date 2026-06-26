@@ -16,7 +16,7 @@ import {
     Divider,
     useTheme
 } from 'react-native-paper';
-import { format } from 'date-fns';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
 import { useAuth } from '../context/AuthContext';
@@ -135,7 +135,7 @@ const ChatListScreen = ({ navigation }) => {
                         />
                     )}
                     right={() => (
-                        <Text style={styles.memberCount}>
+                        <Text style={[styles.memberCount, { color: theme.colors.onSurfaceVariant }]}>
                             {item.members?.length || 0}
                         </Text>
                     )}
@@ -143,6 +143,20 @@ const ChatListScreen = ({ navigation }) => {
             </TouchableOpacity>
             <Divider />
         </>
+    );
+
+    const renderEmptyState = ({ icon, title, subtitle }) => (
+        <View style={styles.emptyContainer}>
+            <Icon name={icon} size={56} color={theme.colors.onSurfaceVariant} />
+            <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>
+                {title}
+            </Text>
+            {subtitle ? (
+                <Text style={[styles.emptySubtext, { color: theme.colors.onSurfaceVariant }]}>
+                    {subtitle}
+                </Text>
+            ) : null}
+        </View>
     );
 
     return (
@@ -154,21 +168,44 @@ const ChatListScreen = ({ navigation }) => {
                 style={styles.searchbar}
             />
 
-            <View style={styles.tabs}>
+            <View
+                style={[
+                    styles.tabs,
+                    { borderBottomColor: theme.colors.outlineVariant || theme.colors.outline }
+                ]}
+            >
                 <TouchableOpacity
-                    style={[styles.tab, tab === 'direct' && styles.activeTab]}
+                    style={[
+                        styles.tab,
+                        tab === 'direct' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }
+                    ]}
                     onPress={() => setTab('direct')}
                 >
-                    <Text style={[styles.tabText, tab === 'direct' && styles.activeTabText]}>
+                    <Text
+                        style={[
+                            styles.tabText,
+                            { color: theme.colors.onSurfaceVariant },
+                            tab === 'direct' && { color: theme.colors.primary, fontWeight: 'bold' }
+                        ]}
+                    >
                         Direct Messages
                     </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.tab, tab === 'groups' && styles.activeTab]}
+                    style={[
+                        styles.tab,
+                        tab === 'groups' && { borderBottomColor: theme.colors.primary, borderBottomWidth: 2 }
+                    ]}
                     onPress={() => setTab('groups')}
                 >
-                    <Text style={[styles.tabText, tab === 'groups' && styles.activeTabText]}>
+                    <Text
+                        style={[
+                            styles.tabText,
+                            { color: theme.colors.onSurfaceVariant },
+                            tab === 'groups' && { color: theme.colors.primary, fontWeight: 'bold' }
+                        ]}
+                    >
                         Groups
                     </Text>
                 </TouchableOpacity>
@@ -182,11 +219,14 @@ const ChatListScreen = ({ navigation }) => {
                     refreshControl={
                         <RefreshControl refreshing={loading} onRefresh={loadData} />
                     }
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No contacts found</Text>
-                        </View>
-                    }
+                    contentContainerStyle={filteredUsers.length === 0 && styles.emptyListContent}
+                    ListEmptyComponent={renderEmptyState({
+                        icon: 'account-search-outline',
+                        title: searchQuery ? 'No contacts found' : 'No contacts yet',
+                        subtitle: searchQuery
+                            ? 'Try a different name or email'
+                            : 'People you can chat with will appear here'
+                    })}
                 />
             ) : (
                 <FlatList
@@ -196,14 +236,14 @@ const ChatListScreen = ({ navigation }) => {
                     refreshControl={
                         <RefreshControl refreshing={loading} onRefresh={loadData} />
                     }
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No groups yet</Text>
-                            <Text style={styles.emptySubtext}>
-                                Tap + to create a new group
-                            </Text>
-                        </View>
-                    }
+                    contentContainerStyle={filteredGroups.length === 0 && styles.emptyListContent}
+                    ListEmptyComponent={renderEmptyState({
+                        icon: 'account-group-outline',
+                        title: searchQuery ? 'No groups found' : 'No groups yet',
+                        subtitle: searchQuery
+                            ? 'Try a different group name'
+                            : 'Tap + to create a new group'
+                    })}
                 />
             )}
 
@@ -220,8 +260,7 @@ const ChatListScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        backgroundColor: '#fff'
+        flex: 1
     },
     searchbar: {
         margin: 8,
@@ -229,25 +268,15 @@ const styles = StyleSheet.create({
     },
     tabs: {
         flexDirection: 'row',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0'
+        borderBottomWidth: 1
     },
     tab: {
         flex: 1,
         paddingVertical: 12,
         alignItems: 'center'
     },
-    activeTab: {
-        borderBottomWidth: 2,
-        borderBottomColor: '#6200ee'
-    },
     tabText: {
-        fontSize: 14,
-        color: '#666'
-    },
-    activeTabText: {
-        color: '#6200ee',
-        fontWeight: 'bold'
+        fontSize: 14
     },
     onlineBadge: {
         position: 'absolute',
@@ -261,24 +290,29 @@ const styles = StyleSheet.create({
         alignSelf: 'center'
     },
     memberCount: {
-        color: '#666',
         fontSize: 12,
         alignSelf: 'center'
+    },
+    emptyListContent: {
+        flexGrow: 1
     },
     emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 60
+        paddingVertical: 60,
+        paddingHorizontal: 32
     },
     emptyText: {
-        fontSize: 16,
-        color: '#999',
-        marginBottom: 8
+        fontSize: 17,
+        fontWeight: '500',
+        marginTop: 16,
+        marginBottom: 6,
+        textAlign: 'center'
     },
     emptySubtext: {
         fontSize: 14,
-        color: '#ccc'
+        textAlign: 'center'
     },
     fab: {
         position: 'absolute',
