@@ -1,0 +1,8 @@
+{
+  "simpsonize": {
+    "base": "Transform the person in the provided image into a 2D cartoon character from The Simpsons.",
+    "style": "Keep their distinct facial features, hair color, and clothing style, but apply the classic yellow skin tone, large circular eyes, and simple bold outlines characteristic of The Simpsons animation style.",
+    "quality": "High quality, flat colors, completely solid background, vector art style, official show style.",
+    "dynamicTemplate": "{{base}} {{style}} Adicionalmente, asegúrate de mantener estos detalles clave de la foto original: {{userContext}}. {{quality}}"
+  }
+}
