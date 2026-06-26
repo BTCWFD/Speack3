@@ -7,6 +7,7 @@ import {
 // This library does not ship a store; we provide one implementing StorageType.
 import SignalProtocolStore from './SignalProtocolStore';
 import StorageService from './StorageService';
+import CryptoJS from 'crypto-js';
 
 class SignalProtocolManager {
     constructor() {
@@ -99,6 +100,48 @@ class SignalProtocolManager {
             console.error('Get public key error:', error);
             throw error;
         }
+    }
+
+    // Get the LOCAL identity public key in base64. Thin alias over
+    // getPublicIdentityKey() so callers (e.g. identity verification UI) can be
+    // explicit about wanting *our* key, mirroring the remote key from the API.
+    async getLocalIdentityPublicBase64() {
+        return this.getPublicIdentityKey();
+    }
+
+    // Derive a deterministic, SYMMETRIC "safety number" from two public
+    // identity keys (both base64). Same result regardless of argument order and
+    // identical on both devices for the same pair of users, so two people can
+    // read it aloud / compare out-of-band to detect a MITM.
+    //
+    // Algorithm (pragmatic, NOT Signal's exact fingerprint spec):
+    //   1. Sort the two base64 keys lexicographically (makes it symmetric).
+    //   2. Concatenate them.
+    //   3. SHA-256 the concatenation (crypto-js -> hex digest).
+    //   4. Take pairs of hex digits (bytes) from the digest, turn each into a
+    //      number in [0, 65535] and map it into a 5-digit decimal block, giving
+    //      12 blocks of 5 digits (60 digits total), grouped Signal-style.
+    //
+    // This is deterministic, symmetric and comparable across devices. It is
+    // NOT interoperable with Signal's real safety numbers.
+    computeSafetyNumber(localKeyB64, remoteKeyB64) {
+        if (!localKeyB64 || !remoteKeyB64) {
+            return null;
+        }
+
+        // Symmetric: order-independent by sorting before concatenation.
+        const [a, b] = [String(localKeyB64), String(remoteKeyB64)].sort();
+        const digestHex = CryptoJS.SHA256(a + b).toString(CryptoJS.enc.Hex);
+
+        const blocks = [];
+        // 12 blocks: each consumes 4 hex chars (2 bytes => 0..65535), formatted
+        // as a zero-padded 5-digit decimal number.
+        for (let i = 0; i < 12; i++) {
+            const chunk = digestHex.substr(i * 4, 4);
+            const value = parseInt(chunk, 16) % 100000;
+            blocks.push(String(value).padStart(5, '0'));
+        }
+        return blocks.join(' ');
     }
 
     // Encrypt message for recipient

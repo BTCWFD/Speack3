@@ -11,7 +11,13 @@ Rather than the per-recipient fan-out below, the draft uses a shared symmetric
 (one ciphertext per message, server stays a blind relay — no server changes):
 
 - `GroupCryptoService` — AES-256-CBC + HMAC-SHA256 (encrypt-then-MAC); the
-  32-byte key is split into enc/MAC subkeys via SHA-256.
+  32-byte key is split into enc/MAC subkeys via SHA-256. The protocol version
+  is folded into the HMAC input (`v.iv.ct`) so a payload can't be reinterpreted
+  under a different version, and MAC comparison is done without an early-out.
+- The group key and per-message IVs are drawn from the platform CSPRNG via
+  `global.crypto.getRandomValues` (react-native-get-random-values, wired up in
+  `mobile/src/cryptoPolyfill.js`). We no longer use crypto-js's
+  `WordArray.random`, whose RNG falls back to `Math.random`.
 - The key is generated on group creation and **distributed to each member over
   their pairwise Signal session** (a `{__speack3:'group-key'}` control message
   tunnelled through `message:direct`); receivers detect it and store the key in
@@ -21,9 +27,16 @@ Rather than the per-recipient fan-out below, the draft uses a shared symmetric
 - Adding a member re-shares the existing key (`GroupInfoScreen`).
 
 Known gaps before this can be promoted out of draft:
-- crypto-js RNG is not a hardware CSPRNG — move to a platform secure-random.
-- No per-message forward secrecy and no re-key when a member leaves.
-- Needs on-device testing of the Signal session handshake used for key delivery.
+- It is still a **static symmetric key**: no per-message forward secrecy and no
+  automatic re-key when a member leaves. A removed member who kept the key can
+  still read future group traffic. This is **not** Signal "sender keys".
+- Needs on-device testing of the Signal session handshake used for key delivery;
+  the group path is still **DRAFT / not yet device-verified**.
+
+Resolved:
+- ~~crypto-js RNG is not a hardware CSPRNG~~ — the key and IVs now come from the
+  platform CSPRNG (`global.crypto.getRandomValues`). This fixes predictable
+  key/IV generation; it does **not** add forward secrecy or sender keys.
 
 ---
 

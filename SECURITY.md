@@ -24,7 +24,7 @@ until they are closed:
 
 | Area | Status |
 |------|--------|
-| **Group messages** | Not yet end-to-end encrypted (the server can read group message contents). True group encryption (sender keys / pairwise fan-out) is in progress. |
+| **Group messages** | The shipped stable build still treats groups as plaintext. A **draft** group-encryption path exists (`GroupCryptoService`: AES-256-CBC + HMAC-SHA256, key/IVs now from the platform CSPRNG) but is **not yet device-verified** and is a **static symmetric key**: no forward secrecy and no re-key when a member leaves (a removed member who kept the key can still read future traffic). It is **not** Signal "sender keys". Do not rely on it yet. |
 | **Metadata** | Not encrypted (who talks to whom, and when, is visible to the server). |
 | **Local token storage** | Being migrated to the OS secure store; older builds kept tokens in plaintext AsyncStorage. |
 | **Server hardening** | Rate limiting, strict CORS, refresh-token revocation and socket input validation are being added. |

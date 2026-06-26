@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
+import CryptoJS from 'crypto-js';
 
 // Keychain service identifiers. Each secret lives under its own service so
 // they can be stored and cleared independently, matching the existing
@@ -8,6 +9,15 @@ const AUTH_TOKEN_SERVICE = 'speack3.auth';
 const REFRESH_TOKEN_SERVICE = 'speack3.refresh';
 const IDENTITY_SERVICE = 'speack3.identity';
 const GROUP_KEYS_SERVICE = 'speack3.groupkeys';
+// Symmetric key used to encrypt the at-rest message cache (AES via crypto-js).
+const CACHE_KEY_SERVICE = 'speack3.cachekey';
+
+// AsyncStorage key prefixes for the persisted Signal Protocol store. Sessions,
+// prekeys and signed prekeys are persisted here (the identity key + registration
+// id live in the Keychain / dedicated keys instead).
+const SIGNAL_SESSION_PREFIX = 'signal_session_';
+const SIGNAL_PREKEY_PREFIX = 'signal_prekey_';
+const SIGNAL_SIGNED_PREKEY_PREFIX = 'signal_signed_prekey_';
 
 class Storage {
     // Auth Token Management
@@ -72,24 +82,33 @@ class Storage {
 
     async clearAuth() {
         try {
-            // Clear secrets from the Keychain (auth + refresh + Signal identity)...
+            // Clear secrets from the Keychain (auth + refresh + Signal identity
+            // + group keys + message cache key)...
             await Promise.all([
                 Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE }),
                 Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE }),
                 Keychain.resetGenericPassword({ service: IDENTITY_SERVICE }),
-                Keychain.resetGenericPassword({ service: GROUP_KEYS_SERVICE })
+                Keychain.resetGenericPassword({ service: GROUP_KEYS_SERVICE }),
+                Keychain.resetGenericPassword({ service: CACHE_KEY_SERVICE })
             ]);
+            this._cacheKey = null;
         } catch (error) {
             console.error('Clear auth keychain error:', error);
         }
 
         try {
             // ...then remove the remaining AsyncStorage items, including any
-            // cached message threads (keys are prefixed with `messages_`).
+            // cached message threads (keys are prefixed with `messages_`) and
+            // the persisted Signal Protocol store (sessions / prekeys).
             const keys = await AsyncStorage.getAllKeys();
             const toRemove = ['current_user', 'registration_id', 'auth_token', 'refresh_token'];
             for (const key of keys) {
-                if (key.startsWith('messages_')) {
+                if (
+                    key.startsWith('messages_') ||
+                    key.startsWith(SIGNAL_SESSION_PREFIX) ||
+                    key.startsWith(SIGNAL_PREKEY_PREFIX) ||
+                    key.startsWith(SIGNAL_SIGNED_PREKEY_PREFIX)
+                ) {
                     toRemove.push(key);
                 }
             }
@@ -203,23 +222,96 @@ class Storage {
         return map[groupId] || null;
     }
 
+    // --- Message cache encryption key -------------------------------------
+    //
+    // A single random 256-bit key (hex string) lives in the Keychain under its
+    // own service and is used to AES-encrypt the cached message bodies at rest.
+    // It is generated once on first use (via the global crypto polyfill) and
+    // reused thereafter. Cached in-memory after the first read to avoid a
+    // Keychain round-trip on every message operation.
+    async _getCacheKey() {
+        if (this._cacheKey) {
+            return this._cacheKey;
+        }
+        try {
+            const credentials = await Keychain.getGenericPassword({
+                service: CACHE_KEY_SERVICE
+            });
+            if (credentials && credentials.password) {
+                this._cacheKey = credentials.password;
+                return this._cacheKey;
+            }
+
+            // Generate a fresh 32-byte (256-bit) key and persist it as hex.
+            const bytes = new Uint8Array(32);
+            global.crypto.getRandomValues(bytes);
+            let hex = '';
+            for (let i = 0; i < bytes.length; i++) {
+                hex += bytes[i].toString(16).padStart(2, '0');
+            }
+
+            await Keychain.setGenericPassword('cache_key', hex, {
+                service: CACHE_KEY_SERVICE
+            });
+            this._cacheKey = hex;
+            return this._cacheKey;
+        } catch (error) {
+            console.error('Get cache key error:', error);
+            return null;
+        }
+    }
+
+    // Encrypt a JS value (array of messages) to a ciphertext string for storage.
+    async _encryptCache(value) {
+        const key = await this._getCacheKey();
+        const json = JSON.stringify(value);
+        if (!key) {
+            // No key available: fall back to storing plaintext rather than
+            // losing the cache entirely (should not normally happen).
+            return json;
+        }
+        return CryptoJS.AES.encrypt(json, key).toString();
+    }
+
+    // Decrypt a stored cache string back to a JS value. Returns [] for legacy
+    // plaintext entries or any value that cannot be decrypted/parsed, so older
+    // unencrypted caches degrade gracefully to "empty".
+    async _decryptCache(stored) {
+        if (!stored) {
+            return [];
+        }
+        const key = await this._getCacheKey();
+        if (!key) {
+            return [];
+        }
+        try {
+            const bytes = CryptoJS.AES.decrypt(stored, key);
+            const json = bytes.toString(CryptoJS.enc.Utf8);
+            if (!json) {
+                return [];
+            }
+            const parsed = JSON.parse(json);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            // Legacy plaintext or corrupt entry: treat as empty cache.
+            return [];
+        }
+    }
+
     // Message Cache
     //
-    // RESIDUAL RISK: this cache keeps the last 100 decrypted messages per chat
-    // in AsyncStorage, which is NOT encrypted at rest. On a rooted/jailbroken
-    // device or via a filesystem backup extraction, cached message bodies could
-    // be recovered. The auth/refresh tokens and Signal identity key have been
-    // moved to the Keychain, but message bodies remain here to preserve the
-    // existing cache API (saveMessage/getMessages/updateMessage/markMessageDeleted)
-    // used by the chat screens without adding a crypto dependency. The cache is
-    // wiped on logout via clearAuth() and via clearMessages()/clearAll().
-    // TODO: encrypt cached bodies at rest (e.g. an MMKV-encrypted or
-    // SQLCipher-backed store) once a vetted dependency is available.
+    // The cache keeps the last 100 decrypted messages per chat. Bodies are now
+    // encrypted at rest with AES (crypto-js) under a random per-install key held
+    // in the Keychain (CACHE_KEY_SERVICE), so a filesystem/backup extraction no
+    // longer yields plaintext message bodies. Legacy plaintext entries written
+    // before this change cannot be decrypted and are treated as an empty cache
+    // (see _decryptCache). The cache is wiped on logout via clearAuth() and via
+    // clearMessages()/clearAll(), and the cache key is reset alongside it.
     async saveMessage(chatId, message) {
         try {
             const key = `messages_${chatId}`;
             const existing = await AsyncStorage.getItem(key);
-            const messages = existing ? JSON.parse(existing) : [];
+            const messages = await this._decryptCache(existing);
 
             messages.push(message);
 
@@ -228,7 +320,7 @@ class Storage {
                 messages.shift();
             }
 
-            await AsyncStorage.setItem(key, JSON.stringify(messages));
+            await AsyncStorage.setItem(key, await this._encryptCache(messages));
         } catch (error) {
             console.error('Save message error:', error);
         }
@@ -238,7 +330,7 @@ class Storage {
         try {
             const key = `messages_${chatId}`;
             const data = await AsyncStorage.getItem(key);
-            return data ? JSON.parse(data) : [];
+            return await this._decryptCache(data);
         } catch (error) {
             console.error('Get messages error:', error);
             return [];
@@ -255,13 +347,13 @@ class Storage {
                 return;
             }
 
-            const messages = JSON.parse(existing);
+            const messages = await this._decryptCache(existing);
             const next = messages.map(msg => {
                 const id = msg.id ?? msg._id;
                 return id?.toString() === messageId?.toString() ? updater(msg) : msg;
             });
 
-            await AsyncStorage.setItem(key, JSON.stringify(next));
+            await AsyncStorage.setItem(key, await this._encryptCache(next));
         } catch (error) {
             console.error('Update message error:', error);
         }
@@ -293,10 +385,149 @@ class Storage {
                 Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE }),
                 Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE }),
                 Keychain.resetGenericPassword({ service: IDENTITY_SERVICE }),
-                Keychain.resetGenericPassword({ service: GROUP_KEYS_SERVICE })
+                Keychain.resetGenericPassword({ service: GROUP_KEYS_SERVICE }),
+                Keychain.resetGenericPassword({ service: CACHE_KEY_SERVICE })
             ]);
+            this._cacheKey = null;
         } catch (error) {
             console.error('Clear all error:', error);
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Signal Protocol store persistence
+    //
+    // The SignalProtocolStore keeps sessions / prekeys / signed prekeys in an
+    // in-memory Map; these helpers back that Map with AsyncStorage so the
+    // cryptographic state survives an app restart. Values are JSON-serialized.
+    //
+    // - Sessions are SessionRecordType (plain strings produced by
+    //   record.serialize()), so they are stored verbatim as JSON strings.
+    // - PreKeys / signed prekeys are KeyPairType ({ pubKey, privKey } as
+    //   ArrayBuffers); each ArrayBuffer is serialized to a base64 string and
+    //   rehydrated back into an ArrayBuffer on load.
+    // ---------------------------------------------------------------------
+
+    _arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return global.btoa(binary);
+    }
+
+    _base64ToArrayBuffer(base64) {
+        const binary = global.atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
+
+    _serializeKeyPair(keyPair) {
+        return JSON.stringify({
+            pubKey: this._arrayBufferToBase64(keyPair.pubKey),
+            privKey: this._arrayBufferToBase64(keyPair.privKey)
+        });
+    }
+
+    _deserializeKeyPair(json) {
+        const data = JSON.parse(json);
+        return {
+            pubKey: this._base64ToArrayBuffer(data.pubKey),
+            privKey: this._base64ToArrayBuffer(data.privKey)
+        };
+    }
+
+    // --- Sessions (record is a serialized string) ---
+    async saveSignalSession(encodedAddress, record) {
+        try {
+            await AsyncStorage.setItem(
+                SIGNAL_SESSION_PREFIX + encodedAddress,
+                JSON.stringify(record)
+            );
+        } catch (error) {
+            console.error('Save signal session error:', error);
+        }
+    }
+
+    async getSignalSession(encodedAddress) {
+        try {
+            const data = await AsyncStorage.getItem(SIGNAL_SESSION_PREFIX + encodedAddress);
+            return data != null ? JSON.parse(data) : undefined;
+        } catch (error) {
+            console.error('Get signal session error:', error);
+            return undefined;
+        }
+    }
+
+    async removeSignalSession(encodedAddress) {
+        try {
+            await AsyncStorage.removeItem(SIGNAL_SESSION_PREFIX + encodedAddress);
+        } catch (error) {
+            console.error('Remove signal session error:', error);
+        }
+    }
+
+    // --- PreKeys (KeyPairType) ---
+    async saveSignalPreKey(keyId, keyPair) {
+        try {
+            await AsyncStorage.setItem(
+                SIGNAL_PREKEY_PREFIX + keyId,
+                this._serializeKeyPair(keyPair)
+            );
+        } catch (error) {
+            console.error('Save signal prekey error:', error);
+        }
+    }
+
+    async getSignalPreKey(keyId) {
+        try {
+            const data = await AsyncStorage.getItem(SIGNAL_PREKEY_PREFIX + keyId);
+            return data != null ? this._deserializeKeyPair(data) : undefined;
+        } catch (error) {
+            console.error('Get signal prekey error:', error);
+            return undefined;
+        }
+    }
+
+    async removeSignalPreKey(keyId) {
+        try {
+            await AsyncStorage.removeItem(SIGNAL_PREKEY_PREFIX + keyId);
+        } catch (error) {
+            console.error('Remove signal prekey error:', error);
+        }
+    }
+
+    // --- Signed PreKeys (KeyPairType) ---
+    async saveSignalSignedPreKey(keyId, keyPair) {
+        try {
+            await AsyncStorage.setItem(
+                SIGNAL_SIGNED_PREKEY_PREFIX + keyId,
+                this._serializeKeyPair(keyPair)
+            );
+        } catch (error) {
+            console.error('Save signal signed prekey error:', error);
+        }
+    }
+
+    async getSignalSignedPreKey(keyId) {
+        try {
+            const data = await AsyncStorage.getItem(SIGNAL_SIGNED_PREKEY_PREFIX + keyId);
+            return data != null ? this._deserializeKeyPair(data) : undefined;
+        } catch (error) {
+            console.error('Get signal signed prekey error:', error);
+            return undefined;
+        }
+    }
+
+    async removeSignalSignedPreKey(keyId) {
+        try {
+            await AsyncStorage.removeItem(SIGNAL_SIGNED_PREKEY_PREFIX + keyId);
+        } catch (error) {
+            console.error('Remove signal signed prekey error:', error);
         }
     }
 }
