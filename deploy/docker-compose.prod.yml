@@ -1,0 +1,56 @@
+# Production stack for Speack3 on a single VM (e.g. Oracle Cloud Always Free).
+#   - server : the Node/Express/Socket.io app (NeDB data on a persistent volume)
+#   - nginx  : TLS reverse proxy that terminates HTTPS/WSS and proxies to server
+#   - certbot: obtains/renews Let's Encrypt certificates
+#
+# Run from the deploy/ directory:  docker compose -f docker-compose.prod.yml up -d
+# (the setup-oracle.sh script orchestrates first-time cert issuance for you).
+services:
+  server:
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    container_name: speack3-server
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    volumes:
+      # NeDB writes here; this named volume survives restarts/redeploys.
+      - speack3_data:/app/data
+    expose:
+      - "3000"           # internal only; nginx is the public entrypoint
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: speack3-nginx
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # active.conf is rendered from speack3.conf by setup-oracle.sh
+      - ./nginx/active.conf:/etc/nginx/conf.d/default.conf:ro
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+
+  certbot:
+    image: certbot/certbot:latest
+    container_name: speack3-certbot
+    # Renew twice a day; nginx picks up new certs on its periodic reload.
+    entrypoint: >
+      sh -c "trap exit TERM;
+      while :; do certbot renew --webroot -w /var/www/certbot --quiet;
+      sleep 12h & wait $${!}; done"
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_conf:/etc/letsencrypt
+
+volumes:
+  speack3_data:
+  certbot_www:
+  certbot_conf:
