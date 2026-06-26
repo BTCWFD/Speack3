@@ -130,7 +130,9 @@ class SignalProtocolManager {
 
             const ciphertext = {
                 type: encryptedMessage.type,
-                body: this.base64ToArrayBuffer(encryptedMessage.body),
+                // libsignal's decrypt*(... , 'binary') expects a binary (latin1)
+                // string, which is exactly what atob() produces.
+                body: atob(encryptedMessage.body),
                 registrationId: encryptedMessage.registrationId
             };
 
@@ -197,8 +199,13 @@ class SignalProtocolManager {
         }
     }
 
-    // Helper: ArrayBuffer to Base64
+    // Helper: ArrayBuffer (or binary string) to Base64.
+    // libsignal returns ciphertext bodies as binary (latin1) strings, so accept
+    // both a string and an ArrayBuffer/typed array.
     arrayBufferToBase64(buffer) {
+        if (typeof buffer === 'string') {
+            return btoa(buffer);
+        }
         const bytes = new Uint8Array(buffer);
         let binary = '';
         for (let i = 0; i < bytes.byteLength; i++) {
@@ -217,10 +224,11 @@ class SignalProtocolManager {
         return bytes.buffer;
     }
 
-    // Helper: String to ArrayBuffer
+    // Helper: String to ArrayBuffer (libsignal requires a real ArrayBuffer,
+    // not a Uint8Array view).
     stringToArrayBuffer(str) {
         const encoder = new TextEncoder();
-        return encoder.encode(str);
+        return encoder.encode(str).buffer;
     }
 
     // Helper: ArrayBuffer to String

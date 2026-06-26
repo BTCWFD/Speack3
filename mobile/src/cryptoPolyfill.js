@@ -13,6 +13,37 @@
 import 'react-native-get-random-values';
 import CryptoJS from 'crypto-js';
 
+// Hermes has no TextEncoder/TextDecoder (used by SignalService to convert
+// message strings <-> bytes). UTF-8 polyfills via the encodeURIComponent trick.
+if (typeof global.TextEncoder === 'undefined') {
+    global.TextEncoder = class TextEncoder {
+        encode(str) {
+            const utf8 = unescape(encodeURIComponent(String(str)));
+            const arr = new Uint8Array(utf8.length);
+            for (let i = 0; i < utf8.length; i++) {
+                arr[i] = utf8.charCodeAt(i);
+            }
+            return arr;
+        }
+    };
+}
+if (typeof global.TextDecoder === 'undefined') {
+    global.TextDecoder = class TextDecoder {
+        decode(buf) {
+            const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf || []);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            try {
+                return decodeURIComponent(escape(binary));
+            } catch (e) {
+                return binary;
+            }
+        }
+    };
+}
+
 // Hermes has no btoa/atob (used by SignalService for base64). Polyfill them
 // (binary-string safe, charCodes 0-255).
 const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
