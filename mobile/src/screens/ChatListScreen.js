@@ -13,7 +13,8 @@ import {
     Text,
     Searchbar,
     FAB,
-    Divider
+    Divider,
+    useTheme
 } from 'react-native-paper';
 import { format } from 'date-fns';
 import ApiService from '../services/ApiService';
@@ -22,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 
 const ChatListScreen = ({ navigation }) => {
     const { user } = useAuth();
+    const theme = useTheme();
     const [chats, setChats] = useState([]);
     const [users, setUsers] = useState([]);
     const [groups, setGroups] = useState([]);
@@ -140,7 +142,7 @@ const ChatListScreen = ({ navigation }) => {
     );
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Searchbar
                 placeholder="Search users or groups..."
                 onChangeText={setSearchQuery}
