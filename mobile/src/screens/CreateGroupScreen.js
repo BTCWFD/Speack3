@@ -9,12 +9,14 @@ import {
     Text,
     Divider,
     Appbar,
-    ActivityIndicator
+    ActivityIndicator,
+    useTheme
 } from 'react-native-paper';
 import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
 
 const CreateGroupScreen = ({ navigation }) => {
+    const theme = useTheme();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [users, setUsers] = useState([]);
@@ -110,7 +112,7 @@ const CreateGroupScreen = ({ navigation }) => {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Appbar.Header>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content title="New Group" />

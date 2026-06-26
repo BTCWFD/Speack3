@@ -11,7 +11,8 @@ import {
     ActivityIndicator,
     IconButton,
     Portal,
-    Dialog
+    Dialog,
+    useTheme
 } from 'react-native-paper';
 import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
@@ -24,6 +25,7 @@ const idOf = (entity) => entity?._id || entity?.id;
 const GroupInfoScreen = ({ route, navigation }) => {
     const { groupId, groupName } = route.params;
     const { user } = useAuth();
+    const theme = useTheme();
 
     const [group, setGroup] = useState(null);
     const [users, setUsers] = useState([]);
@@ -220,7 +222,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
     };
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Appbar.Header>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content

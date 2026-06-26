@@ -11,7 +11,8 @@ import {
     Appbar,
     Text,
     ActivityIndicator,
-    Menu
+    Menu,
+    useTheme
 } from 'react-native-paper';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
@@ -23,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 const GroupChatScreen = ({ route, navigation }) => {
     const { groupId, groupName, members } = route.params;
     const { user } = useAuth();
+    const theme = useTheme();
 
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -228,7 +230,7 @@ const GroupChatScreen = ({ route, navigation }) => {
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >

@@ -8,7 +8,8 @@ import {
     Divider,
     ActivityIndicator,
     Button,
-    Chip
+    Chip,
+    useTheme
 } from 'react-native-paper';
 import { formatDistanceToNow } from 'date-fns';
 import ApiService from '../services/ApiService';
@@ -38,6 +39,7 @@ const formatLastSeen = (lastSeen) => {
 
 const ProfileScreen = ({ route, navigation }) => {
     const { userId, username } = route.params;
+    const theme = useTheme();
 
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -63,7 +65,7 @@ const ProfileScreen = ({ route, navigation }) => {
     const displayName = profile?.username || username || 'Unknown user';
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Appbar.Header>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content title="Profile" />

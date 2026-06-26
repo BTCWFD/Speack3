@@ -11,7 +11,8 @@ import {
     Appbar,
     Text,
     ActivityIndicator,
-    TouchableRipple
+    TouchableRipple,
+    useTheme
 } from 'react-native-paper';
 import { formatDistanceToNow } from 'date-fns';
 import MessageBubble from '../components/MessageBubble';
@@ -24,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 const ChatScreen = ({ route, navigation }) => {
     const { contactId, contactName, contactOnline } = route.params;
     const { user } = useAuth();
+    const theme = useTheme();
 
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -327,7 +329,7 @@ const ChatScreen = ({ route, navigation }) => {
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
