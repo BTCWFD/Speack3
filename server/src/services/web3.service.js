@@ -39,6 +39,24 @@ class Web3Service {
             return false;
         }
     }
+
+    /**
+     * Mints a new Avatar NFT to the user's wallet
+     * @param {string} walletAddress - The user's target wallet
+     * @param {string} imageIPFSUrl - The IPFS URL of the generated image
+     * @returns {Promise<string>} - The transaction hash of the mint operation
+     */
+    async mintAvatarNFT(walletAddress, imageIPFSUrl) {
+        console.log(`[WEB3] Minting Avatar NFT for ${walletAddress} with image ${imageIPFSUrl}...`);
+        
+        // Simulación: En un entorno de producción cargaríamos el ABI del contrato y usaríamos una wallet admin para firmar y acuñar.
+        // const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, adminWallet);
+        // const tx = await contract.mint(walletAddress, imageIPFSUrl);
+        // await tx.wait();
+        
+        // Simulamos un hash de transacción exitosa
+        return '0x' + Math.random().toString(16).substring(2, 42) + '... (Simulated Mint)';
+    }
 }
 
 module.exports = new Web3Service();

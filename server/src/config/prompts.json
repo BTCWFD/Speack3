@@ -4,5 +4,17 @@
     "style": "Keep their distinct facial features, hair color, and clothing style, but apply the classic yellow skin tone, large circular eyes, and simple bold outlines characteristic of The Simpsons animation style.",
     "quality": "High quality, flat colors, completely solid background, vector art style, official show style.",
     "dynamicTemplate": "{{base}} {{style}} Adicionalmente, asegúrate de mantener estos detalles clave de la foto original: {{userContext}}. {{quality}}"
+  },
+  "cyberpunk": {
+    "base": "Transform the person in the provided image into a futuristic Cyberpunk character.",
+    "style": "Keep their facial features recognizable, but add neon glowing accents, cybernetic implants on the face or neck, and futuristic techwear clothing. Use a color palette dominated by neon pink, electric blue, and dark shadows.",
+    "quality": "High quality digital art, neon lighting, highly detailed, 8k resolution, cinematic lighting.",
+    "dynamicTemplate": "{{base}} {{style}} Retain these details: {{userContext}}. {{quality}}"
+  },
+  "pixar3d": {
+    "base": "Transform the person in the provided image into a 3D animated character in the style of Pixar.",
+    "style": "Maintain their likeness but give them expressive, slightly oversized eyes, soft smooth skin textures, and stylized proportions. The lighting should be soft, colorful, and highly polished like a modern 3D animated movie.",
+    "quality": "3D render, Octane render, Unreal Engine 5, soft lighting, masterpiece, ultra-detailed.",
+    "dynamicTemplate": "{{base}} {{style}} Keep these details: {{userContext}}. {{quality}}"
   }
 }

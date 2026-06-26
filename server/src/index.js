@@ -3,6 +3,7 @@ const cors = require('cors');
 
 const aiRoutes = require('./routes/ai.routes');
 const paymentRoutes = require('./routes/payments.routes');
+const gamificationRoutes = require('./routes/gamification.routes');
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 // Registering routes
 app.use('/api/ai', aiRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/gamification', gamificationRoutes);
 
 const PORT = process.env.PORT || 3000;
 

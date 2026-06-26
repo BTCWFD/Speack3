@@ -6,17 +6,33 @@ const SimpsonizeScreen = () => {
   const [loading, setLoading] = useState(false);
   const scaleAnim = new Animated.Value(1);
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 0.95, duration: 100, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 1, duration: 100, useNativeDriver: true })
     ]).start();
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      // Mock Base64 for testing purposes
+      const imageBase64 = "mock_base64_string"; 
+      
+      const response = await fetch('http://10.0.2.2:3000/api/ai/simpsonize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64 })
+      });
+      
+      const result = await response.json();
+      
+      if(result.success) {
+        setUploaded(true);
+      }
+    } catch (error) {
+      console.error("Error conectando con Gemini:", error);
+    } finally {
       setLoading(false);
-      setUploaded(true);
-    }, 2000);
+    }
   };
 
   return (

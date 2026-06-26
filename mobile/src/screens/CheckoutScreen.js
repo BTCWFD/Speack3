@@ -9,6 +9,35 @@ const CheckoutScreen = () => {
     { id: 'usdt', name: 'Crypto USDT', icon: '💎', color: '#26A17B', desc: 'Pay via Web3 Wallet (Polygon/BSC)' },
   ];
 
+  const handlePayment = async () => {
+    try {
+      const endpoint = selectedMethod === 'nequi' 
+        ? 'http://10.0.2.2:3000/api/payments/nequi' 
+        : 'http://10.0.2.2:3000/api/payments/usdt';
+
+      const payload = selectedMethod === 'nequi' 
+        ? { phoneNumber: '3001234567', amount: 20000 }
+        : { userId: 'user_123', amountUSDT: 5 };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const result = await response.json();
+
+      if(result.success) {
+         alert(`Intención de pago creada: ${result.paymentIntent.status}`);
+      } else {
+         alert('Error al crear pago');
+      }
+    } catch(error) {
+      console.error("Error en la pasarela de pago:", error);
+      alert('Network error');
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
@@ -55,6 +84,7 @@ const CheckoutScreen = () => {
       <TouchableOpacity 
         style={[styles.payButton, !selectedMethod && styles.payButtonDisabled]}
         disabled={!selectedMethod}
+        onPress={handlePayment}
       >
         <Text style={styles.payButtonText}>
           {selectedMethod === 'usdt' ? 'Connect Wallet & Pay' : 'Pay Now'}
