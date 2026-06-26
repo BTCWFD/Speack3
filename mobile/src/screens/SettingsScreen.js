@@ -10,18 +10,47 @@ import {
     useTheme
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { useThemeMode } from '../context/ThemeContext';
 import MirrorButton from '../components/MirrorButton';
 
 const SettingsScreen = () => {
-    const { user, logout } = useAuth();
+    const { user, logout, updateAvatar } = useAuth();
     const { isDark, toggleTheme, palette, setThemePalette, palettes } = useThemeMode();
     const theme = useTheme();
 
     const [loggingOut, setLoggingOut] = useState(false);
     const [notifications, setNotifications] = useState(true);
     const [readReceipts, setReadReceipts] = useState(true);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+    const handlePickPhoto = async () => {
+        try {
+            const result = await launchImageLibrary({
+                mediaType: 'photo',
+                includeBase64: true,
+                maxWidth: 512,
+                maxHeight: 512,
+                quality: 0.7
+            });
+            if (result.didCancel || !result.assets || !result.assets.length) {
+                return;
+            }
+            const asset = result.assets[0];
+            if (!asset.base64) {
+                Alert.alert('Error', 'Could not read the selected image.');
+                return;
+            }
+            const dataUri = `data:${asset.type || 'image/jpeg'};base64,${asset.base64}`;
+            setUploadingPhoto(true);
+            await updateAvatar(dataUri);
+        } catch (e) {
+            Alert.alert('Error', e.message || 'Could not update photo.');
+        } finally {
+            setUploadingPhoto(false);
+        }
+    };
 
     const handleLogout = () => {
         Alert.alert('Log out', 'Are you sure you want to log out?', [
@@ -76,13 +105,29 @@ const SettingsScreen = () => {
 
             <ScrollView>
                 <View style={styles.profile}>
-                    <Avatar.Text
-                        size={72}
-                        label={user?.username?.charAt(0).toUpperCase() || '?'}
-                    />
+                    <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
+                        <View>
+                            {user?.avatar ? (
+                                <Avatar.Image size={88} source={{ uri: user.avatar }} />
+                            ) : (
+                                <Avatar.Text
+                                    size={88}
+                                    label={user?.username?.charAt(0).toUpperCase() || '?'}
+                                />
+                            )}
+                            <View
+                                style={[
+                                    styles.cameraBadge,
+                                    { backgroundColor: theme.colors.primary }
+                                ]}
+                            >
+                                <Icon name="camera" size={18} color="#fff" />
+                            </View>
+                        </View>
+                    </Pressable>
                     <Text style={styles.username}>{user?.username || 'Unknown user'}</Text>
                     <Text style={[styles.email, { color: theme.colors.onSurfaceVariant }]}>
-                        {user?.email || ''}
+                        {uploadingPhoto ? 'Uploading photo…' : user?.email || ''}
                     </Text>
                 </View>
 
@@ -212,6 +257,18 @@ const SettingsScreen = () => {
 const styles = StyleSheet.create({
     container: { flex: 1 },
     profile: { alignItems: 'center', paddingVertical: 24 },
+    cameraBadge: {
+        position: 'absolute',
+        right: -2,
+        bottom: -2,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 2,
+        borderColor: 'rgba(255,255,255,0.9)'
+    },
     username: { fontSize: 20, fontWeight: 'bold', marginTop: 12 },
     email: { fontSize: 14, marginTop: 4 },
     swatchRow: {

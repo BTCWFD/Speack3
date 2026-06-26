@@ -81,10 +81,14 @@ const ProfileScreen = ({ route, navigation }) => {
             ) : (
                 <ScrollView>
                     <View style={styles.header}>
-                        <Avatar.Text
-                            size={96}
-                            label={displayName.charAt(0).toUpperCase() || '?'}
-                        />
+                        {profile?.avatar ? (
+                            <Avatar.Image size={96} source={{ uri: profile.avatar }} />
+                        ) : (
+                            <Avatar.Text
+                                size={96}
+                                label={displayName.charAt(0).toUpperCase() || '?'}
+                            />
+                        )}
                         <Text style={styles.username}>{displayName}</Text>
                         <Text style={styles.email}>{profile?.email || ''}</Text>
                         <Chip

@@ -18,12 +18,34 @@ router.get('/', auth, async (req, res) => {
             online: u.online,
             lastSeen: u.lastSeen,
             identityKeyPublic: u.identityKeyPublic,
-            registrationId: u.registrationId
+            registrationId: u.registrationId,
+            avatar: u.avatar || null
         }));
 
         res.json({ users });
     } catch (error) {
         console.error('Get users error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   PUT /api/users/me/avatar
+// @desc    Set the current user's profile photo (base64 data URI)
+// @access  Private
+router.put('/me/avatar', auth, async (req, res) => {
+    try {
+        const { avatar } = req.body;
+        if (typeof avatar !== 'string' || avatar.length === 0) {
+            return res.status(400).json({ error: 'avatar (data URI) required' });
+        }
+        // Guard against oversized payloads (~1.5MB of base64).
+        if (avatar.length > 1500000) {
+            return res.status(413).json({ error: 'Image too large' });
+        }
+        await User.findByIdAndUpdate(req.userId, { avatar });
+        res.json({ message: 'Avatar updated', avatar });
+    } catch (error) {
+        console.error('Update avatar error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -47,7 +69,8 @@ router.get('/:id', auth, async (req, res) => {
             online: user.online,
             lastSeen: user.lastSeen,
             identityKeyPublic: user.identityKeyPublic,
-            registrationId: user.registrationId
+            registrationId: user.registrationId,
+            avatar: user.avatar || null
         };
 
         res.json({ user: publicUser });

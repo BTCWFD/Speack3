@@ -129,7 +129,8 @@ router.post('/login', [
                 username: user.username,
                 email: user.email,
                 identityKeyPublic: user.identityKeyPublic,
-                registrationId: user.registrationId
+                registrationId: user.registrationId,
+                avatar: user.avatar || null
             },
             token,
             refreshToken

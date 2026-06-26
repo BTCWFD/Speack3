@@ -95,10 +95,14 @@ const ChatListScreen = ({ navigation }) => {
                     description={item.email}
                     left={() => (
                         <View>
-                            <Avatar.Text
-                                size={48}
-                                label={item.username?.charAt(0).toUpperCase() || '?'}
-                            />
+                            {item.avatar ? (
+                                <Avatar.Image size={48} source={{ uri: item.avatar }} />
+                            ) : (
+                                <Avatar.Text
+                                    size={48}
+                                    label={item.username?.charAt(0).toUpperCase() || '?'}
+                                />
+                            )}
                             {item.online && (
                                 <Badge
                                     size={12}

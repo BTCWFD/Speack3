@@ -129,6 +129,14 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // Update the current user's profile photo (base64 data URI) and persist it.
+    const updateAvatar = async (avatar) => {
+        await ApiService.updateAvatar(avatar);
+        const next = { ...(user || {}), avatar };
+        setUser(next);
+        await StorageService.saveCurrentUser(next);
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -137,7 +145,8 @@ export const AuthProvider = ({ children }) => {
                 loading,
                 register,
                 login,
-                logout
+                logout,
+                updateAvatar
             }}
         >
             {children}

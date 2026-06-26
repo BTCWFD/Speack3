@@ -130,6 +130,16 @@ class ApiService {
         }
     }
 
+    // Profile photo (base64 data URI)
+    async updateAvatar(avatar) {
+        try {
+            const response = await this.client.put('/api/users/me/avatar', { avatar });
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     // Group endpoints
     async createGroup(groupData) {
         try {
