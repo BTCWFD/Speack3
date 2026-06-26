@@ -17,12 +17,14 @@ import {
     ProgressBar,
     useTheme
 } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import MirrorButton from '../components/MirrorButton';
 
 const RegisterScreen = ({ navigation }) => {
     const { register, loading } = useAuth();
     const theme = useTheme();
+    const { t } = useTranslation();
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -44,25 +46,25 @@ const RegisterScreen = ({ navigation }) => {
         const newErrors = {};
 
         if (!formData.username) {
-            newErrors.username = 'Username is required';
+            newErrors.username = t('validation.usernameRequired');
         } else if (formData.username.length < 3) {
-            newErrors.username = 'Username must be at least 3 characters';
+            newErrors.username = t('validation.usernameMinLength');
         }
 
         if (!formData.email) {
-            newErrors.email = 'Email is required';
+            newErrors.email = t('validation.emailRequired');
         } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-            newErrors.email = 'Email is invalid';
+            newErrors.email = t('validation.emailInvalid');
         }
 
         if (!formData.password) {
-            newErrors.password = 'Password is required';
+            newErrors.password = t('validation.passwordRequired');
         } else if (formData.password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters';
+            newErrors.password = t('validation.passwordMinLength');
         }
 
         if (formData.password !== formData.confirmPassword) {
-            newErrors.confirmPassword = 'Passwords do not match';
+            newErrors.confirmPassword = t('validation.passwordsNoMatch');
         }
 
         setErrors(newErrors);
@@ -83,9 +85,9 @@ const RegisterScreen = ({ navigation }) => {
         setKeyGenerationProgress(1);
 
         if (result.success) {
-            Alert.alert('Success', 'Account created successfully! Encryption keys generated.');
+            Alert.alert(t('auth.success'), t('auth.accountCreated'));
         } else {
-            Alert.alert('Registration Failed', result.error || 'Please try again');
+            Alert.alert(t('auth.registrationFailed'), result.error || t('auth.tryAgain'));
             setKeyGenerationProgress(0);
         }
     };
@@ -101,15 +103,15 @@ const RegisterScreen = ({ navigation }) => {
             >
                 <Surface style={styles.surface}>
                     <View style={styles.header}>
-                        <Title style={styles.title}>Create Account</Title>
+                        <Title style={styles.title}>{t('auth.createAccount')}</Title>
                         <Text style={styles.subtitle}>
-                            Your encryption keys will be generated automatically
+                            {t('auth.registerSubtitle')}
                         </Text>
                     </View>
 
                     <View style={styles.form}>
                         <TextInput
-                            label="Username"
+                            label={t('auth.username')}
                             value={formData.username}
                             onChangeText={(text) => updateField('username', text)}
                             mode="outlined"
@@ -122,7 +124,7 @@ const RegisterScreen = ({ navigation }) => {
                         </HelperText>
 
                         <TextInput
-                            label="Email"
+                            label={t('auth.email')}
                             value={formData.email}
                             onChangeText={(text) => updateField('email', text)}
                             mode="outlined"
@@ -137,7 +139,7 @@ const RegisterScreen = ({ navigation }) => {
                         </HelperText>
 
                         <TextInput
-                            label="Password"
+                            label={t('auth.password')}
                             value={formData.password}
                             onChangeText={(text) => updateField('password', text)}
                             mode="outlined"
@@ -157,7 +159,7 @@ const RegisterScreen = ({ navigation }) => {
                         </HelperText>
 
                         <TextInput
-                            label="Confirm Password"
+                            label={t('auth.confirmPassword')}
                             value={formData.confirmPassword}
                             onChangeText={(text) => updateField('confirmPassword', text)}
                             mode="outlined"
@@ -173,7 +175,7 @@ const RegisterScreen = ({ navigation }) => {
                         {keyGenerationProgress > 0 && keyGenerationProgress < 1 && (
                             <View style={styles.progressContainer}>
                                 <Text style={styles.progressText}>
-                                    Generating encryption keys...
+                                    {t('auth.generatingKeys')}
                                 </Text>
                                 <ProgressBar progress={keyGenerationProgress} />
                             </View>
@@ -185,7 +187,7 @@ const RegisterScreen = ({ navigation }) => {
                             disabled={loading}
                             style={styles.button}
                         >
-                            Register
+                            {t('auth.register')}
                         </MirrorButton>
 
                         <Button
@@ -193,7 +195,7 @@ const RegisterScreen = ({ navigation }) => {
                             onPress={() => navigation.navigate('Login')}
                             style={styles.linkButton}
                         >
-                            Already have an account? Login
+                            {t('auth.haveAccount')}
                         </Button>
                     </View>
                 </Surface>

@@ -15,7 +15,9 @@ import {
     useTheme
 } from 'react-native-paper';
 import { formatDistanceToNow, isToday, isYesterday, isSameDay, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ApiService from '../services/ApiService';
@@ -27,6 +29,8 @@ const ChatScreen = ({ route, navigation }) => {
     const { contactId, contactName, contactOnline } = route.params;
     const { user } = useAuth();
     const theme = useTheme();
+    const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === 'es' ? es : undefined;
 
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -200,12 +204,12 @@ const ChatScreen = ({ route, navigation }) => {
 
     const handleDelete = (message) => {
         Alert.alert(
-            'Delete message',
-            'Are you sure you want to delete this message?',
+            t('chat.deleteTitle'),
+            t('chat.deleteConfirm'),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: t('common.delete'),
                     style: 'destructive',
                     onPress: () => {
                         const messageId = message.id ?? message._id;
@@ -259,16 +263,20 @@ const ChatScreen = ({ route, navigation }) => {
 
     const getSubtitle = () => {
         if (online) {
-            return 'Online';
+            return t('chat.online');
         }
         if (lastSeen) {
             try {
-                return `last seen ${formatDistanceToNow(new Date(lastSeen), { addSuffix: true })}`;
+                const time = formatDistanceToNow(new Date(lastSeen), {
+                    addSuffix: true,
+                    locale: dateLocale
+                });
+                return t('chat.lastSeen', { time });
             } catch {
-                return 'Offline';
+                return t('chat.offline');
             }
         }
-        return 'Offline';
+        return t('chat.offline');
     };
 
     const sendMessage = async (text) => {
@@ -341,10 +349,10 @@ const ChatScreen = ({ route, navigation }) => {
     };
 
     const formatDayLabel = (date) => {
-        if (isToday(date)) return 'Hoy';
-        if (isYesterday(date)) return 'Ayer';
+        if (isToday(date)) return t('chat.today');
+        if (isYesterday(date)) return t('chat.yesterday');
         try {
-            return format(date, 'PPP');
+            return format(date, 'PPP', { locale: dateLocale });
         } catch {
             return '';
         }
@@ -391,10 +399,10 @@ const ChatScreen = ({ route, navigation }) => {
                 color={theme.colors.onSurfaceVariant}
             />
             <Text style={[styles.emptyText, { color: theme.colors.onSurface }]}>
-                Esta conversación está cifrada de extremo a extremo.
+                {t('chat.encryptedNotice')}
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.colors.onSurfaceVariant }]}>
-                Saluda 👋
+                {t('chat.sayHi')}
             </Text>
         </View>
     );
@@ -451,7 +459,7 @@ const ChatScreen = ({ route, navigation }) => {
                         ]}
                     >
                         <Text style={[styles.typingText, { color: theme.colors.onSurfaceVariant }]}>
-                            {contactName} is typing...
+                            {t('chat.isTyping', { name: contactName })}
                         </Text>
                     </View>
                 )}

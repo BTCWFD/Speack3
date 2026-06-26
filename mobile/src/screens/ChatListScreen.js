@@ -17,6 +17,7 @@ import {
     useTheme
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +25,7 @@ import { useAuth } from '../context/AuthContext';
 const ChatListScreen = ({ navigation }) => {
     const { user } = useAuth();
     const theme = useTheme();
+    const { t } = useTranslation();
     const [chats, setChats] = useState([]);
     const [users, setUsers] = useState([]);
     const [groups, setGroups] = useState([]);
@@ -113,7 +115,7 @@ const ChatListScreen = ({ navigation }) => {
                     )}
                     right={() => (
                         item.online ? (
-                            <Text style={styles.onlineText}>Online</Text>
+                            <Text style={styles.onlineText}>{t('chatList.online')}</Text>
                         ) : null
                     )}
                 />
@@ -127,7 +129,7 @@ const ChatListScreen = ({ navigation }) => {
             <TouchableOpacity onPress={() => openGroupChat(item)}>
                 <List.Item
                     title={item.name}
-                    description={`${item.members?.length || 0} members`}
+                    description={t('chatList.members', { count: item.members?.length || 0 })}
                     left={() => (
                         <Avatar.Icon
                             size={48}
@@ -162,7 +164,7 @@ const ChatListScreen = ({ navigation }) => {
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Searchbar
-                placeholder="Search users or groups..."
+                placeholder={t('chatList.searchPlaceholder')}
                 onChangeText={setSearchQuery}
                 value={searchQuery}
                 style={styles.searchbar}
@@ -188,7 +190,7 @@ const ChatListScreen = ({ navigation }) => {
                             tab === 'direct' && { color: theme.colors.primary, fontWeight: 'bold' }
                         ]}
                     >
-                        Direct Messages
+                        {t('chatList.directMessages')}
                     </Text>
                 </TouchableOpacity>
 
@@ -206,7 +208,7 @@ const ChatListScreen = ({ navigation }) => {
                             tab === 'groups' && { color: theme.colors.primary, fontWeight: 'bold' }
                         ]}
                     >
-                        Groups
+                        {t('chatList.groups')}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -222,10 +224,10 @@ const ChatListScreen = ({ navigation }) => {
                     contentContainerStyle={filteredUsers.length === 0 && styles.emptyListContent}
                     ListEmptyComponent={renderEmptyState({
                         icon: 'account-search-outline',
-                        title: searchQuery ? 'No contacts found' : 'No contacts yet',
+                        title: searchQuery ? t('chatList.noContactsFound') : t('chatList.noContactsYet'),
                         subtitle: searchQuery
-                            ? 'Try a different name or email'
-                            : 'People you can chat with will appear here'
+                            ? t('chatList.noContactsFoundHint')
+                            : t('chatList.noContactsYetHint')
                     })}
                 />
             ) : (
@@ -239,10 +241,10 @@ const ChatListScreen = ({ navigation }) => {
                     contentContainerStyle={filteredGroups.length === 0 && styles.emptyListContent}
                     ListEmptyComponent={renderEmptyState({
                         icon: 'account-group-outline',
-                        title: searchQuery ? 'No groups found' : 'No groups yet',
+                        title: searchQuery ? t('chatList.noGroupsFound') : t('chatList.noGroupsYet'),
                         subtitle: searchQuery
-                            ? 'Try a different group name'
-                            : 'Tap + to create a new group'
+                            ? t('chatList.noGroupsFoundHint')
+                            : t('chatList.noGroupsYetHint')
                     })}
                 />
             )}

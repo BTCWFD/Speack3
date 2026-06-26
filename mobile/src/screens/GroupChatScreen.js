@@ -14,6 +14,7 @@ import {
     Menu,
     useTheme
 } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import ApiService from '../services/ApiService';
@@ -25,6 +26,7 @@ const GroupChatScreen = ({ route, navigation }) => {
     const { groupId, groupName, members } = route.params;
     const { user } = useAuth();
     const theme = useTheme();
+    const { t } = useTranslation();
 
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -163,12 +165,12 @@ const GroupChatScreen = ({ route, navigation }) => {
 
     const handleDelete = (message) => {
         Alert.alert(
-            'Delete message',
-            'Are you sure you want to delete this message?',
+            t('chat.deleteTitle'),
+            t('chat.deleteConfirm'),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: t('common.delete'),
                     style: 'destructive',
                     onPress: () => {
                         const messageId = message.id ?? message._id;
@@ -238,7 +240,7 @@ const GroupChatScreen = ({ route, navigation }) => {
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content
                     title={groupName}
-                    subtitle={`${members?.length || 0} members`}
+                    subtitle={t('group.members', { count: members?.length || 0 })}
                 />
                 <Menu
                     visible={menuVisible}
@@ -255,14 +257,14 @@ const GroupChatScreen = ({ route, navigation }) => {
                             setMenuVisible(false);
                             navigation.navigate('GroupInfo', { groupId, groupName });
                         }}
-                        title="Group info"
+                        title={t('group.groupInfo')}
                     />
                     <Menu.Item
                         onPress={() => {
                             setMenuVisible(false);
                             navigation.navigate('GroupInfo', { groupId, groupName });
                         }}
-                        title="Add members"
+                        title={t('group.addMembers')}
                     />
                 </Menu>
             </Appbar.Header>
@@ -286,7 +288,7 @@ const GroupChatScreen = ({ route, navigation }) => {
 
             <ChatInput
                 onSend={editingMessage ? submitEdit : sendMessage}
-                placeholder={`Message ${groupName}`}
+                placeholder={t('group.messagePlaceholder', { name: groupName })}
                 editing={editingMessage}
                 onCancelEdit={() => setEditingMessage(null)}
             />

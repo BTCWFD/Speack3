@@ -12,6 +12,8 @@ import {
     useTheme
 } from 'react-native-paper';
 import { formatDistanceToNow } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ApiService from '../services/ApiService';
 import SignalService from '../services/SignalService';
@@ -21,9 +23,9 @@ const verifiedKey = (id) => `identity_verified_${id}`;
 
 // Format a base64 identity key into spaced 5-char groups so the user can
 // compare a short, deterministic fingerprint out-of-band. Purely read-only.
-const formatFingerprint = (identityKeyPublic) => {
+const formatFingerprint = (identityKeyPublic, unavailableLabel) => {
     if (!identityKeyPublic) {
-        return 'Unavailable';
+        return unavailableLabel;
     }
     const cleaned = String(identityKeyPublic).replace(/[^A-Za-z0-9]/g, '');
     const groups = cleaned.match(/.{1,5}/g) || [];
@@ -31,20 +33,26 @@ const formatFingerprint = (identityKeyPublic) => {
     return groups.slice(0, 8).join(' ');
 };
 
-const formatLastSeen = (lastSeen) => {
-    if (!lastSeen) {
-        return 'Offline';
-    }
-    try {
-        return `Last seen ${formatDistanceToNow(new Date(lastSeen), { addSuffix: true })}`;
-    } catch (error) {
-        return 'Offline';
-    }
-};
-
 const ProfileScreen = ({ route, navigation }) => {
     const { userId, username } = route.params;
     const theme = useTheme();
+    const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === 'es' ? es : undefined;
+
+    const formatLastSeen = (lastSeen) => {
+        if (!lastSeen) {
+            return t('profile.offline');
+        }
+        try {
+            const time = formatDistanceToNow(new Date(lastSeen), {
+                addSuffix: true,
+                locale: dateLocale
+            });
+            return t('profile.lastSeen', { time });
+        } catch (error) {
+            return t('profile.offline');
+        }
+    };
 
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -94,7 +102,7 @@ const ProfileScreen = ({ route, navigation }) => {
                 setSafetyNumber(null);
             }
         } catch (err) {
-            setError(err.message || 'Could not load profile');
+            setError(err.message || t('profile.couldNotLoad'));
         } finally {
             setLoading(false);
         }
@@ -115,13 +123,13 @@ const ProfileScreen = ({ route, navigation }) => {
         }
     };
 
-    const displayName = profile?.username || username || 'Unknown user';
+    const displayName = profile?.username || username || t('common.unknownUser');
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Appbar.Header>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
-                <Appbar.Content title="Profile" />
+                <Appbar.Content title={t('profile.title')} />
             </Appbar.Header>
 
             {loading ? (
@@ -130,7 +138,7 @@ const ProfileScreen = ({ route, navigation }) => {
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>{error}</Text>
                     <Button mode="contained" onPress={loadProfile} style={styles.retry}>
-                        Retry
+                        {t('common.retry')}
                     </Button>
                 </View>
             ) : (
@@ -154,21 +162,21 @@ const ProfileScreen = ({ route, navigation }) => {
                             ]}
                             textStyle={styles.statusText}
                         >
-                            {profile?.online ? 'Online' : formatLastSeen(profile?.lastSeen)}
+                            {profile?.online ? t('common.online') : formatLastSeen(profile?.lastSeen)}
                         </Chip>
                     </View>
 
                     <Divider />
 
                     <List.Section>
-                        <List.Subheader>Account</List.Subheader>
+                        <List.Subheader>{t('profile.account')}</List.Subheader>
                         <List.Item
-                            title="Username"
+                            title={t('profile.username')}
                             description={profile?.username || '—'}
                             left={(props) => <List.Icon {...props} icon="account" />}
                         />
                         <List.Item
-                            title="Email"
+                            title={t('profile.email')}
                             description={profile?.email || '—'}
                             left={(props) => <List.Icon {...props} icon="email" />}
                         />
@@ -177,14 +185,14 @@ const ProfileScreen = ({ route, navigation }) => {
                     <Divider />
 
                     <List.Section>
-                        <List.Subheader>Verify identity</List.Subheader>
+                        <List.Subheader>{t('profile.verifyIdentity')}</List.Subheader>
                         <View style={styles.verifySection}>
                             <View style={styles.verifyHeaderRow}>
                                 <Text
                                     variant="titleMedium"
                                     style={[styles.verifyTitle, { color: theme.colors.onSurface }]}
                                 >
-                                    Safety number
+                                    {t('profile.safetyNumber')}
                                 </Text>
                                 {verified && (
                                     <Chip
@@ -196,7 +204,7 @@ const ProfileScreen = ({ route, navigation }) => {
                                         ]}
                                         textStyle={styles.statusText}
                                     >
-                                        Verified
+                                        {t('profile.verified')}
                                     </Chip>
                                 )}
                             </View>
@@ -208,7 +216,7 @@ const ProfileScreen = ({ route, navigation }) => {
                                 ]}
                                 selectable
                             >
-                                {safetyNumber || 'Unavailable'}
+                                {safetyNumber || t('common.unavailable')}
                             </Text>
 
                             <Text
@@ -217,7 +225,7 @@ const ProfileScreen = ({ route, navigation }) => {
                                     { color: theme.colors.onSurfaceVariant }
                                 ]}
                             >
-                                {`Compara este número con ${displayName} en persona o por otro canal para confirmar que nadie intercepta.`}
+                                {t('profile.compareHint', { name: displayName })}
                             </Text>
 
                             {safetyNumber && (
@@ -227,7 +235,7 @@ const ProfileScreen = ({ route, navigation }) => {
                                     onPress={toggleVerified}
                                     style={styles.verifyButton}
                                 >
-                                    {verified ? 'Verified — tap to undo' : 'Mark as verified'}
+                                    {verified ? t('profile.verifiedUndo') : t('profile.markVerified')}
                                 </Button>
                             )}
                         </View>
@@ -236,17 +244,17 @@ const ProfileScreen = ({ route, navigation }) => {
                     <Divider />
 
                     <List.Section>
-                        <List.Subheader>Security</List.Subheader>
+                        <List.Subheader>{t('profile.security')}</List.Subheader>
                         <List.Item
-                            title="Remote identity key"
-                            description={formatFingerprint(profile?.identityKeyPublic)}
+                            title={t('profile.remoteIdentityKey')}
+                            description={formatFingerprint(profile?.identityKeyPublic, t('common.unavailable'))}
                             descriptionNumberOfLines={3}
                             descriptionStyle={styles.fingerprint}
                             left={(props) => <List.Icon {...props} icon="shield-key" />}
                         />
                         <List.Item
-                            title="End-to-end encryption"
-                            description="Messages are secured with the Signal Protocol"
+                            title={t('profile.endToEndEncryption')}
+                            description={t('profile.signalProtocolDesc')}
                             left={(props) => <List.Icon {...props} icon="lock" />}
                         />
                     </List.Section>

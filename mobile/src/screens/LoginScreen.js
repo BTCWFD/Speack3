@@ -16,12 +16,14 @@ import {
     Surface,
     useTheme
 } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import MirrorButton from '../components/MirrorButton';
 
 const LoginScreen = ({ navigation }) => {
     const { login, loading } = useAuth();
     const theme = useTheme();
+    const { t } = useTranslation();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -31,15 +33,15 @@ const LoginScreen = ({ navigation }) => {
         const newErrors = {};
 
         if (!email) {
-            newErrors.email = 'Email is required';
+            newErrors.email = t('validation.emailRequired');
         } else if (!/\S+@\S+\.\S+/.test(email)) {
-            newErrors.email = 'Email is invalid';
+            newErrors.email = t('validation.emailInvalid');
         }
 
         if (!password) {
-            newErrors.password = 'Password is required';
+            newErrors.password = t('validation.passwordRequired');
         } else if (password.length < 6) {
-            newErrors.password = 'Password must be at least 6 characters';
+            newErrors.password = t('validation.passwordMinLength');
         }
 
         setErrors(newErrors);
@@ -52,7 +54,7 @@ const LoginScreen = ({ navigation }) => {
         const result = await login(email, password);
 
         if (!result.success) {
-            Alert.alert('Login Failed', result.error || 'Invalid credentials');
+            Alert.alert(t('auth.loginFailed'), result.error || t('auth.invalidCredentials'));
         }
     };
 
@@ -67,13 +69,13 @@ const LoginScreen = ({ navigation }) => {
             >
                 <Surface style={styles.surface}>
                     <View style={styles.header}>
-                        <Title style={styles.title}>🔒 Speack3</Title>
-                        <Text style={styles.subtitle}>Secure E2E Encrypted Chat</Text>
+                        <Title style={styles.title}>{t('auth.appName')}</Title>
+                        <Text style={styles.subtitle}>{t('auth.tagline')}</Text>
                     </View>
 
                     <View style={styles.form}>
                         <TextInput
-                            label="Email"
+                            label={t('auth.email')}
                             value={email}
                             onChangeText={setEmail}
                             mode="outlined"
@@ -88,7 +90,7 @@ const LoginScreen = ({ navigation }) => {
                         </HelperText>
 
                         <TextInput
-                            label="Password"
+                            label={t('auth.password')}
                             value={password}
                             onChangeText={setPassword}
                             mode="outlined"
@@ -113,7 +115,7 @@ const LoginScreen = ({ navigation }) => {
                             disabled={loading}
                             style={styles.button}
                         >
-                            Login
+                            {t('auth.login')}
                         </MirrorButton>
 
                         <Button
@@ -121,7 +123,7 @@ const LoginScreen = ({ navigation }) => {
                             onPress={() => navigation.navigate('Register')}
                             style={styles.linkButton}
                         >
-                            Don't have an account? Register
+                            {t('auth.noAccount')}
                         </Button>
                     </View>
                 </Surface>

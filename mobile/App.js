@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { Provider as PaperProvider } from 'react-native-paper';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { ThemeProvider, useThemeMode } from './src/context/ThemeContext';
 import { AuthNavigator, MainNavigator } from './src/navigation/AppNavigator';
+import { loadSavedLanguage } from './src/i18n';
 
 const AppContent = () => {
     const { isAuthenticated, loading } = useAuth();
@@ -42,6 +43,10 @@ const ThemedApp = () => {
 };
 
 const App = () => {
+    useEffect(() => {
+        loadSavedLanguage();
+    }, []);
+
     return (
         <ThemeProvider>
             <ThemedApp />

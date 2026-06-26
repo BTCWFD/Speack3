@@ -12,11 +12,13 @@ import {
     ActivityIndicator,
     useTheme
 } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
 
 const CreateGroupScreen = ({ navigation }) => {
     const theme = useTheme();
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [users, setUsers] = useState([]);
@@ -34,7 +36,7 @@ const CreateGroupScreen = ({ navigation }) => {
             const data = await ApiService.getUsers();
             setUsers(data || []);
         } catch (error) {
-            Alert.alert('Error', error.message || 'Could not load users');
+            Alert.alert(t('common.error'), error.message || t('group.couldNotLoadUsers'));
         } finally {
             setLoading(false);
         }
@@ -55,11 +57,11 @@ const CreateGroupScreen = ({ navigation }) => {
     const handleCreate = async () => {
         const trimmedName = name.trim();
         if (trimmedName.length < 1) {
-            Alert.alert('Validation', 'Group name is required');
+            Alert.alert(t('group.validation'), t('group.nameRequired'));
             return;
         }
         if (selected.size < 1) {
-            Alert.alert('Validation', 'Select at least one member');
+            Alert.alert(t('group.validation'), t('group.selectMember'));
             return;
         }
 
@@ -82,7 +84,7 @@ const CreateGroupScreen = ({ navigation }) => {
             }
             navigation.goBack();
         } catch (error) {
-            Alert.alert('Error', error.message || 'Could not create group');
+            Alert.alert(t('common.error'), error.message || t('group.couldNotCreate'));
         } finally {
             setCreating(false);
         }
@@ -115,12 +117,12 @@ const CreateGroupScreen = ({ navigation }) => {
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Appbar.Header>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
-                <Appbar.Content title="New Group" />
+                <Appbar.Content title={t('group.newGroup')} />
             </Appbar.Header>
 
             <View style={styles.form}>
                 <TextInput
-                    label="Group name"
+                    label={t('group.groupName')}
                     value={name}
                     onChangeText={setName}
                     mode="outlined"
@@ -128,14 +130,14 @@ const CreateGroupScreen = ({ navigation }) => {
                     style={styles.input}
                 />
                 <TextInput
-                    label="Description (optional)"
+                    label={t('group.descriptionOptional')}
                     value={description}
                     onChangeText={setDescription}
                     mode="outlined"
                     style={styles.input}
                 />
                 <Text style={styles.sectionLabel}>
-                    Members ({selected.size} selected)
+                    {t('group.membersSelected', { count: selected.size })}
                 </Text>
             </View>
 
@@ -147,7 +149,7 @@ const CreateGroupScreen = ({ navigation }) => {
                     renderItem={renderUser}
                     keyExtractor={(item) => item._id || item.id}
                     ListEmptyComponent={
-                        <Text style={styles.empty}>No users available</Text>
+                        <Text style={styles.empty}>{t('group.noUsersAvailable')}</Text>
                     }
                 />
             )}
@@ -159,7 +161,7 @@ const CreateGroupScreen = ({ navigation }) => {
                 disabled={creating}
                 style={styles.createButton}
             >
-                Create Group
+                {t('group.createGroup')}
             </Button>
         </View>
     );

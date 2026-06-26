@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 
 // Auth Screens
 import LoginScreen from '../screens/LoginScreen';
@@ -40,31 +41,37 @@ const ChatStack = () => (
 );
 
 // Main Tab Navigator
-export const MainNavigator = () => (
-    <Tab.Navigator
-        screenOptions={{
-            headerShown: false,
-            tabBarActiveTintColor: '#6200ee',
-            tabBarInactiveTintColor: '#999'
-        }}
-    >
-        <Tab.Screen
-            name="Chats"
-            component={ChatStack}
-            options={{
-                tabBarIcon: ({ color, size }) => (
-                    <Icon name="message-text" size={size} color={color} />
-                )
+export const MainNavigator = () => {
+    const { t } = useTranslation();
+
+    return (
+        <Tab.Navigator
+            screenOptions={{
+                headerShown: false,
+                tabBarActiveTintColor: '#6200ee',
+                tabBarInactiveTintColor: '#999'
             }}
-        />
-        <Tab.Screen
-            name="Settings"
-            component={SettingsScreen}
-            options={{
-                tabBarIcon: ({ color, size }) => (
-                    <Icon name="cog" size={size} color={color} />
-                )
-            }}
-        />
-    </Tab.Navigator>
-);
+        >
+            <Tab.Screen
+                name="Chats"
+                component={ChatStack}
+                options={{
+                    tabBarLabel: t('settings.chats'),
+                    tabBarIcon: ({ color, size }) => (
+                        <Icon name="message-text" size={size} color={color} />
+                    )
+                }}
+            />
+            <Tab.Screen
+                name="Settings"
+                component={SettingsScreen}
+                options={{
+                    tabBarLabel: t('settings.title'),
+                    tabBarIcon: ({ color, size }) => (
+                        <Icon name="cog" size={size} color={color} />
+                    )
+                }}
+            />
+        </Tab.Navigator>
+    );
+};

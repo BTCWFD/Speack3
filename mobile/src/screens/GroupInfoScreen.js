@@ -14,6 +14,7 @@ import {
     Dialog,
     useTheme
 } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +27,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
     const { groupId, groupName } = route.params;
     const { user } = useAuth();
     const theme = useTheme();
+    const { t } = useTranslation();
 
     const [group, setGroup] = useState(null);
     const [users, setUsers] = useState([]);
@@ -52,7 +54,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
             setGroup(groupData);
             setUsers(userData || []);
         } catch (err) {
-            setError(err.message || 'Could not load group');
+            setError(err.message || t('group.couldNotLoad'));
         } finally {
             setLoading(false);
         }
@@ -66,17 +68,17 @@ const GroupInfoScreen = ({ route, navigation }) => {
         return acc;
     }, {});
 
-    const members = memberIds.map((mid) => usersById[mid] || { _id: mid, username: 'Unknown' });
+    const members = memberIds.map((mid) => usersById[mid] || { _id: mid, username: t('group.unknown') });
 
     const handleRemove = (member) => {
         const memberId = idOf(member);
         Alert.alert(
-            'Remove member',
-            `Remove ${member.username || 'this member'} from the group?`,
+            t('group.removeMember'),
+            t('group.removeConfirm', { name: member.username || t('group.thisMember') }),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Remove',
+                    text: t('common.remove'),
                     style: 'destructive',
                     onPress: async () => {
                         setBusy(true);
@@ -84,7 +86,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
                             await ApiService.removeGroupMember(groupId, memberId);
                             await loadData();
                         } catch (err) {
-                            Alert.alert('Error', err.message || 'Could not remove member');
+                            Alert.alert(t('common.error'), err.message || t('group.couldNotRemove'));
                         } finally {
                             setBusy(false);
                         }
@@ -130,7 +132,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
             setAddVisible(false);
             await loadData();
         } catch (err) {
-            Alert.alert('Error', err.message || 'Could not add members');
+            Alert.alert(t('common.error'), err.message || t('group.couldNotAdd'));
         } finally {
             setBusy(false);
         }
@@ -138,12 +140,12 @@ const GroupInfoScreen = ({ route, navigation }) => {
 
     const handleDeleteGroup = () => {
         Alert.alert(
-            'Delete group',
-            `Delete "${group?.name || groupName}"? This cannot be undone.`,
+            t('group.deleteGroupTitle'),
+            t('group.deleteGroupConfirm', { name: group?.name || groupName }),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Delete',
+                    text: t('common.delete'),
                     style: 'destructive',
                     onPress: async () => {
                         setBusy(true);
@@ -151,7 +153,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
                             await ApiService.deleteGroup(groupId);
                             navigation.goBack();
                         } catch (err) {
-                            Alert.alert('Error', err.message || 'Could not delete group');
+                            Alert.alert(t('common.error'), err.message || t('group.couldNotDelete'));
                             setBusy(false);
                         }
                     }
@@ -169,8 +171,8 @@ const GroupInfoScreen = ({ route, navigation }) => {
         return (
             <>
                 <List.Item
-                    title={item.username || 'Unknown'}
-                    description={isMemberAdmin ? 'Admin' : item.email}
+                    title={item.username || t('group.unknown')}
+                    description={isMemberAdmin ? t('group.admin') : item.email}
                     onPress={() =>
                         navigation.navigate('Profile', {
                             userId: memberId,
@@ -227,7 +229,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content
                     title={group?.name || groupName}
-                    subtitle={`${memberIds.length} members`}
+                    subtitle={t('group.members', { count: memberIds.length })}
                 />
             </Appbar.Header>
 
@@ -237,7 +239,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>{error}</Text>
                     <Button mode="contained" onPress={loadData} style={styles.retry}>
-                        Retry
+                        {t('common.retry')}
                     </Button>
                 </View>
             ) : (
@@ -248,11 +250,11 @@ const GroupInfoScreen = ({ route, navigation }) => {
                         keyExtractor={(item) => idOf(item)}
                         ListHeaderComponent={
                             <Text style={styles.sectionLabel}>
-                                Members ({memberIds.length})
+                                {t('group.membersCount', { count: memberIds.length })}
                             </Text>
                         }
                         ListEmptyComponent={
-                            <Text style={styles.empty}>No members</Text>
+                            <Text style={styles.empty}>{t('group.noMembers')}</Text>
                         }
                     />
 
@@ -265,7 +267,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
                                 disabled={busy || candidates.length === 0}
                                 style={styles.actionButton}
                             >
-                                Add members
+                                {t('group.addMembers')}
                             </Button>
                             <Button
                                 mode="contained"
@@ -275,7 +277,7 @@ const GroupInfoScreen = ({ route, navigation }) => {
                                 disabled={busy}
                                 style={styles.actionButton}
                             >
-                                Delete group
+                                {t('group.deleteGroup')}
                             </Button>
                         </View>
                     )}
@@ -284,25 +286,25 @@ const GroupInfoScreen = ({ route, navigation }) => {
 
             <Portal>
                 <Dialog visible={addVisible} onDismiss={() => setAddVisible(false)}>
-                    <Dialog.Title>Add members</Dialog.Title>
+                    <Dialog.Title>{t('group.addMembers')}</Dialog.Title>
                     <Dialog.ScrollArea style={styles.dialogArea}>
                         <FlatList
                             data={candidates}
                             renderItem={renderCandidate}
                             keyExtractor={(item) => idOf(item)}
                             ListEmptyComponent={
-                                <Text style={styles.empty}>No users to add</Text>
+                                <Text style={styles.empty}>{t('group.noUsersToAdd')}</Text>
                             }
                         />
                     </Dialog.ScrollArea>
                     <Dialog.Actions>
-                        <Button onPress={() => setAddVisible(false)}>Cancel</Button>
+                        <Button onPress={() => setAddVisible(false)}>{t('common.cancel')}</Button>
                         <Button
                             onPress={handleAddMembers}
                             loading={busy}
                             disabled={busy || selected.size === 0}
                         >
-                            Add ({selected.size})
+                            {t('group.addCount', { count: selected.size })}
                         </Button>
                     </Dialog.Actions>
                 </Dialog>

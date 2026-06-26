@@ -12,14 +12,17 @@ import {
 } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useThemeMode } from '../context/ThemeContext';
+import { setAppLanguage } from '../i18n';
 import MirrorButton from '../components/MirrorButton';
 
 const SettingsScreen = () => {
     const { user, logout, updateAvatar } = useAuth();
     const { isDark, mode, setThemeMode, palette, setThemePalette, palettes } = useThemeMode();
     const theme = useTheme();
+    const { t, i18n } = useTranslation();
 
     const [loggingOut, setLoggingOut] = useState(false);
     const [notifications, setNotifications] = useState(true);
@@ -40,24 +43,24 @@ const SettingsScreen = () => {
             }
             const asset = result.assets[0];
             if (!asset.base64) {
-                Alert.alert('Error', 'Could not read the selected image.');
+                Alert.alert(t('common.error'), t('settings.couldNotReadImage'));
                 return;
             }
             const dataUri = `data:${asset.type || 'image/jpeg'};base64,${asset.base64}`;
             setUploadingPhoto(true);
             await updateAvatar(dataUri);
         } catch (e) {
-            Alert.alert('Error', e.message || 'Could not update photo.');
+            Alert.alert(t('common.error'), e.message || t('settings.couldNotUpdatePhoto'));
         } finally {
             setUploadingPhoto(false);
         }
     };
 
     const handleLogout = () => {
-        Alert.alert('Log out', 'Are you sure you want to log out?', [
-            { text: 'Cancel', style: 'cancel' },
+        Alert.alert(t('settings.logout'), t('settings.logoutConfirm'), [
+            { text: t('common.cancel'), style: 'cancel' },
             {
-                text: 'Log out',
+                text: t('settings.logout'),
                 style: 'destructive',
                 onPress: async () => {
                     setLoggingOut(true);
@@ -73,12 +76,12 @@ const SettingsScreen = () => {
 
     const handleClearCache = () => {
         Alert.alert(
-            'Clear message cache',
-            'This removes locally cached messages on this device. Your account and keys are kept.',
+            t('settings.clearCacheTitle'),
+            t('settings.clearCacheConfirm'),
             [
-                { text: 'Cancel', style: 'cancel' },
+                { text: t('common.cancel'), style: 'cancel' },
                 {
-                    text: 'Clear',
+                    text: t('settings.clear'),
                     style: 'destructive',
                     onPress: async () => {
                         try {
@@ -88,9 +91,9 @@ const SettingsScreen = () => {
                             if (msgKeys.length) {
                                 await AsyncStorage.multiRemove(msgKeys);
                             }
-                            Alert.alert('Done', 'Message cache cleared.');
+                            Alert.alert(t('common.done'), t('settings.cacheCleared'));
                         } catch (e) {
-                            Alert.alert('Error', 'Could not clear cache.');
+                            Alert.alert(t('common.error'), t('settings.couldNotClearCache'));
                         }
                     }
                 }
@@ -101,7 +104,7 @@ const SettingsScreen = () => {
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Appbar.Header>
-                <Appbar.Content title="Settings" />
+                <Appbar.Content title={t('settings.title')} />
             </Appbar.Header>
 
             <ScrollView>
@@ -126,22 +129,22 @@ const SettingsScreen = () => {
                             </View>
                         </View>
                     </Pressable>
-                    <Text style={styles.username}>{user?.username || 'Unknown user'}</Text>
+                    <Text style={styles.username}>{user?.username || t('common.unknownUser')}</Text>
                     <Text style={[styles.email, { color: theme.colors.onSurfaceVariant }]}>
-                        {uploadingPhoto ? 'Uploading photo…' : user?.email || ''}
+                        {uploadingPhoto ? t('settings.uploadingPhoto') : user?.email || ''}
                     </Text>
                 </View>
 
                 <Divider />
 
                 <List.Section>
-                    <List.Subheader>Appearance</List.Subheader>
+                    <List.Subheader>{t('settings.appearance')}</List.Subheader>
                     <List.Item
-                        title="Theme"
+                        title={t('settings.theme')}
                         description={
                             mode === 'system'
-                                ? `System (${isDark ? 'Dark' : 'Light'})`
-                                : isDark ? 'Dark' : 'Light'
+                                ? t('settings.systemTheme', { mode: isDark ? t('settings.dark') : t('settings.light') })
+                                : isDark ? t('settings.dark') : t('settings.light')
                         }
                         left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
                     />
@@ -150,14 +153,14 @@ const SettingsScreen = () => {
                             value={mode}
                             onValueChange={setThemeMode}
                             buttons={[
-                                { value: 'light', label: 'Claro', icon: 'white-balance-sunny' },
-                                { value: 'dark', label: 'Oscuro', icon: 'moon-waning-crescent' },
-                                { value: 'system', label: 'Sistema', icon: 'cellphone' }
+                                { value: 'light', label: t('settings.modeLight'), icon: 'white-balance-sunny' },
+                                { value: 'dark', label: t('settings.modeDark'), icon: 'moon-waning-crescent' },
+                                { value: 'system', label: t('settings.modeSystem'), icon: 'cellphone' }
                             ]}
                         />
                     </View>
                     <List.Item
-                        title="Color theme"
+                        title={t('settings.colorTheme')}
                         description={palettes[palette]?.name}
                         left={(props) => <List.Icon {...props} icon="palette" />}
                     />
@@ -190,18 +193,38 @@ const SettingsScreen = () => {
                 <Divider />
 
                 <List.Section>
-                    <List.Subheader>Notifications</List.Subheader>
+                    <List.Subheader>{t('settings.language')}</List.Subheader>
                     <List.Item
-                        title="Push notifications"
-                        description="Notify me about new messages"
+                        title={t('settings.language')}
+                        left={(props) => <List.Icon {...props} icon="translate" />}
+                    />
+                    <View style={styles.segmentRow}>
+                        <SegmentedButtons
+                            value={i18n.language}
+                            onValueChange={setAppLanguage}
+                            buttons={[
+                                { value: 'es', label: 'Español' },
+                                { value: 'en', label: 'English' }
+                            ]}
+                        />
+                    </View>
+                </List.Section>
+
+                <Divider />
+
+                <List.Section>
+                    <List.Subheader>{t('settings.notifications')}</List.Subheader>
+                    <List.Item
+                        title={t('settings.pushNotifications')}
+                        description={t('settings.pushNotificationsDesc')}
                         left={(props) => <List.Icon {...props} icon="bell" />}
                         right={() => (
                             <Switch value={notifications} onValueChange={setNotifications} />
                         )}
                     />
                     <List.Item
-                        title="Read receipts"
-                        description="Let others know when you've read messages"
+                        title={t('settings.readReceipts')}
+                        description={t('settings.readReceiptsDesc')}
                         left={(props) => <List.Icon {...props} icon="check-all" />}
                         right={() => (
                             <Switch value={readReceipts} onValueChange={setReadReceipts} />
@@ -212,14 +235,14 @@ const SettingsScreen = () => {
                 <Divider />
 
                 <List.Section>
-                    <List.Subheader>Account</List.Subheader>
+                    <List.Subheader>{t('settings.account')}</List.Subheader>
                     <List.Item
-                        title="Username"
+                        title={t('settings.username')}
                         description={user?.username || '—'}
                         left={(props) => <List.Icon {...props} icon="account" />}
                     />
                     <List.Item
-                        title="Email"
+                        title={t('settings.email')}
                         description={user?.email || '—'}
                         left={(props) => <List.Icon {...props} icon="email" />}
                     />
@@ -228,15 +251,15 @@ const SettingsScreen = () => {
                 <Divider />
 
                 <List.Section>
-                    <List.Subheader>Privacy & security</List.Subheader>
+                    <List.Subheader>{t('settings.privacySecurity')}</List.Subheader>
                     <List.Item
-                        title="End-to-end encryption"
-                        description="Direct messages use the Signal Protocol"
+                        title={t('settings.endToEndEncryption')}
+                        description={t('settings.directMessagesSignal')}
                         left={(props) => <List.Icon {...props} icon="lock" />}
                     />
                     <List.Item
-                        title="Clear message cache"
-                        description="Remove locally cached messages"
+                        title={t('settings.clearCache')}
+                        description={t('settings.clearCacheDesc')}
                         left={(props) => <List.Icon {...props} icon="delete-sweep" />}
                         onPress={handleClearCache}
                     />
@@ -245,9 +268,9 @@ const SettingsScreen = () => {
                 <Divider />
 
                 <List.Section>
-                    <List.Subheader>About</List.Subheader>
+                    <List.Subheader>{t('settings.about')}</List.Subheader>
                     <List.Item
-                        title="Version"
+                        title={t('settings.version')}
                         description="Speack3 1.0.0"
                         left={(props) => <List.Icon {...props} icon="information" />}
                     />
@@ -261,7 +284,7 @@ const SettingsScreen = () => {
                         loading={loggingOut}
                         disabled={loggingOut}
                     >
-                        Log out
+                        {t('settings.logout')}
                     </MirrorButton>
                 </View>
             </ScrollView>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Surface, Text, Menu, useTheme } from 'react-native-paper';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 const MessageBubble = ({
     message,
@@ -12,6 +13,7 @@ const MessageBubble = ({
 }) => {
     const [menuVisible, setMenuVisible] = useState(false);
     const theme = useTheme();
+    const { t } = useTranslation();
     const { colors } = theme;
 
     // Theme-aware colors: own bubble uses primary, other uses an elevated surface.
@@ -48,7 +50,7 @@ const MessageBubble = ({
         if (message.deleted) {
             return (
                 <Text style={[styles.deletedText, { color: textColor }]}>
-                    Message deleted
+                    {t('message.deleted')}
                 </Text>
             );
         }
@@ -98,7 +100,7 @@ const MessageBubble = ({
                                         styles.editedText,
                                         { color: metaColor, opacity: 0.7 }
                                     ]}>
-                                        (edited)
+                                        {t('message.edited')}
                                     </Text>
                                 )}
 
@@ -132,7 +134,7 @@ const MessageBubble = ({
                             closeMenu();
                             onEdit(message);
                         }}
-                        title="Edit"
+                        title={t('message.edit')}
                         leadingIcon="pencil"
                     />
                 )}
@@ -142,7 +144,7 @@ const MessageBubble = ({
                             closeMenu();
                             onDelete(message);
                         }}
-                        title="Delete"
+                        title={t('message.delete')}
                         leadingIcon="delete"
                     />
                 )}

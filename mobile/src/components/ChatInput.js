@@ -1,17 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { TextInput, IconButton, Text, useTheme } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 
 const ChatInput = ({
     onSend,
     onTyping,
-    placeholder = 'Type a message...',
+    placeholder,
     editing = null,
     onCancelEdit
 }) => {
     const [message, setMessage] = useState('');
     const typingTimeoutRef = useRef(null);
     const { colors } = useTheme();
+    const { t } = useTranslation();
+    const resolvedPlaceholder = placeholder ?? t('chatInput.typeMessage');
     const surface = colors.elevation?.level2 || colors.surface;
 
     // When an edit starts, pre-fill the input with the text being edited.
@@ -89,7 +92,7 @@ const ChatInput = ({
                 >
                     <View style={styles.editBannerText}>
                         <Text style={[styles.editLabel, { color: colors.primary }]}>
-                            Editing message
+                            {t('chatInput.editingMessage')}
                         </Text>
                         <Text
                             style={[styles.editPreview, { color: colors.onSurfaceVariant }]}
@@ -109,7 +112,7 @@ const ChatInput = ({
             <TextInput
                 value={message}
                 onChangeText={handleMessageChange}
-                placeholder={editing ? 'Edit message...' : placeholder}
+                placeholder={editing ? t('chatInput.editMessage') : resolvedPlaceholder}
                 mode="outlined"
                 multiline
                 maxLength={1000}
