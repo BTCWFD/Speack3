@@ -2,15 +2,19 @@ import {
     SignalProtocolAddress,
     SessionBuilder,
     SessionCipher,
-    KeyHelper,
-    SignalProtocolStore
+    KeyHelper
 } from '@privacyresearch/libsignal-protocol-typescript';
+// This library does not ship a store; we provide one implementing StorageType.
+import SignalProtocolStore from './SignalProtocolStore';
 import StorageService from './StorageService';
 
 class SignalProtocolManager {
     constructor() {
         this.store = null;
         this.registrationId = null;
+        // Library has no nextId tracking; we manage prekey ids ourselves.
+        this.nextPreKeyId = 1;
+        this.nextSignedPreKeyId = 1;
     }
 
     // Initialize Signal Protocol for current user
@@ -45,25 +49,20 @@ class SignalProtocolManager {
         }
     }
 
-    // Generate prekeys for server upload
+    // Generate prekeys for server upload. The library exposes generatePreKey
+    // (singular), so we loop and assign ids ourselves.
     async generatePreKeys(count = 100) {
         try {
-            const preKeys = await KeyHelper.generatePreKeys(
-                await this.store.getNextPreKeyId(),
-                count
-            );
-
-            // Save prekeys locally
-            for (const preKey of preKeys) {
+            const preKeysForServer = [];
+            for (let i = 0; i < count; i++) {
+                const keyId = this.nextPreKeyId++;
+                const preKey = await KeyHelper.generatePreKey(keyId);
                 await this.store.storePreKey(preKey.keyId, preKey.keyPair);
+                preKeysForServer.push({
+                    keyId: preKey.keyId,
+                    publicKey: this.arrayBufferToBase64(preKey.keyPair.pubKey)
+                });
             }
-
-            // Format for server
-            const preKeysForServer = preKeys.map(pk => ({
-                keyId: pk.keyId,
-                publicKey: this.arrayBufferToBase64(pk.keyPair.pubKey)
-            }));
-
             return preKeysForServer;
         } catch (error) {
             console.error('PreKey generation error:', error);
@@ -75,10 +74,8 @@ class SignalProtocolManager {
     async generateSignedPreKey() {
         try {
             const identityKeyPair = await this.store.getIdentityKeyPair();
-            const signedPreKey = await KeyHelper.generateSignedPreKey(
-                identityKeyPair,
-                await this.store.getNextSignedPreKeyId()
-            );
+            const keyId = this.nextSignedPreKeyId++;
+            const signedPreKey = await KeyHelper.generateSignedPreKey(identityKeyPair, keyId);
 
             await this.store.storeSignedPreKey(signedPreKey.keyId, signedPreKey.keyPair);
 
