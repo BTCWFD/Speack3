@@ -13,12 +13,15 @@ import {
     Text,
     Title,
     HelperText,
-    Surface
+    Surface,
+    useTheme
 } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
+import MirrorButton from '../components/MirrorButton';
 
 const LoginScreen = ({ navigation }) => {
     const { login, loading } = useAuth();
+    const theme = useTheme();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -55,7 +58,7 @@ const LoginScreen = ({ navigation }) => {
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <ScrollView
@@ -104,16 +107,14 @@ const LoginScreen = ({ navigation }) => {
                             {errors.password}
                         </HelperText>
 
-                        <Button
-                            mode="contained"
+                        <MirrorButton
                             onPress={handleLogin}
                             loading={loading}
                             disabled={loading}
                             style={styles.button}
-                            contentStyle={styles.buttonContent}
                         >
                             Login
-                        </Button>
+                        </MirrorButton>
 
                         <Button
                             mode="text"

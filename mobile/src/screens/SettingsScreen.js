@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, Pressable } from 'react-native';
 import {
     Avatar,
     Text,
     List,
-    Button,
     Divider,
     Appbar,
     Switch,
     useTheme
 } from 'react-native-paper';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useAuth } from '../context/AuthContext';
 import { useThemeMode } from '../context/ThemeContext';
-import StorageService from '../services/StorageService';
+import MirrorButton from '../components/MirrorButton';
 
 const SettingsScreen = () => {
     const { user, logout } = useAuth();
-    const { isDark, toggleTheme } = useThemeMode();
+    const { isDark, toggleTheme, palette, setThemePalette, palettes } = useThemeMode();
     const theme = useTheme();
 
     const [loggingOut, setLoggingOut] = useState(false);
@@ -96,6 +96,35 @@ const SettingsScreen = () => {
                         left={(props) => <List.Icon {...props} icon="theme-light-dark" />}
                         right={() => <Switch value={isDark} onValueChange={toggleTheme} />}
                     />
+                    <List.Item
+                        title="Color theme"
+                        description={palettes[palette]?.name}
+                        left={(props) => <List.Icon {...props} icon="palette" />}
+                    />
+                    <View style={styles.swatchRow}>
+                        {Object.keys(palettes).map((key) => {
+                            const c = palettes[key][isDark ? 'dark' : 'light'];
+                            const selected = key === palette;
+                            return (
+                                <Pressable
+                                    key={key}
+                                    onPress={() => setThemePalette(key)}
+                                    style={[
+                                        styles.swatch,
+                                        { backgroundColor: c },
+                                        selected && {
+                                            borderColor: theme.colors.onSurface,
+                                            borderWidth: 3
+                                        }
+                                    ]}
+                                >
+                                    {selected ? (
+                                        <Icon name="check" size={20} color="#fff" />
+                                    ) : null}
+                                </Pressable>
+                            );
+                        })}
+                    </View>
                 </List.Section>
 
                 <Divider />
@@ -165,16 +194,15 @@ const SettingsScreen = () => {
                 </List.Section>
 
                 <View style={styles.logoutContainer}>
-                    <Button
-                        mode="contained"
-                        buttonColor={theme.colors.error}
+                    <MirrorButton
                         icon="logout"
+                        color={theme.colors.error}
                         onPress={handleLogout}
                         loading={loggingOut}
                         disabled={loggingOut}
                     >
                         Log out
-                    </Button>
+                    </MirrorButton>
                 </View>
             </ScrollView>
         </View>
@@ -186,6 +214,22 @@ const styles = StyleSheet.create({
     profile: { alignItems: 'center', paddingVertical: 24 },
     username: { fontSize: 20, fontWeight: 'bold', marginTop: 12 },
     email: { fontSize: 14, marginTop: 4 },
+    swatchRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+        gap: 14
+    },
+    swatch: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderColor: 'rgba(0,0,0,0.15)',
+        borderWidth: 1
+    },
     logoutContainer: { padding: 16, paddingBottom: 32 }
 });
 

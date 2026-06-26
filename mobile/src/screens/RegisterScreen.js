@@ -14,12 +14,15 @@ import {
     Title,
     HelperText,
     Surface,
-    ProgressBar
+    ProgressBar,
+    useTheme
 } from 'react-native-paper';
 import { useAuth } from '../context/AuthContext';
+import MirrorButton from '../components/MirrorButton';
 
 const RegisterScreen = ({ navigation }) => {
     const { register, loading } = useAuth();
+    const theme = useTheme();
     const [formData, setFormData] = useState({
         username: '',
         email: '',
@@ -89,7 +92,7 @@ const RegisterScreen = ({ navigation }) => {
 
     return (
         <KeyboardAvoidingView
-            style={styles.container}
+            style={[styles.container, { backgroundColor: theme.colors.background }]}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
             <ScrollView
@@ -176,16 +179,14 @@ const RegisterScreen = ({ navigation }) => {
                             </View>
                         )}
 
-                        <Button
-                            mode="contained"
+                        <MirrorButton
                             onPress={handleRegister}
                             loading={loading}
                             disabled={loading}
                             style={styles.button}
-                            contentStyle={styles.buttonContent}
                         >
                             Register
-                        </Button>
+                        </MirrorButton>
 
                         <Button
                             mode="text"
