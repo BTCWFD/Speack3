@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width: 400px; margin: 0 auto;">
+    {% if step == 'tenant' %}
+    <h2>Oracle Cloud Console Login</h2>
+    <form action="/login/tenant" method="POST">
+        <div class="form-group">
+            <label for="tenant-input">Tenant Domain / Account Name</label>
+            <input type="text" id="tenant-input" name="tenant" placeholder="e.g. mytenant" required autofocus>
+        </div>
+        <button type="submit" id="btn-next" class="btn" style="width: 100%;">Next</button>
+    </form>
+    {% else %}
+    <h2>Sign In</h2>
+    {% if error %}
+    <div class="alert alert-danger" id="login-error">
+        {{ error }}
+    </div>
+    {% endif %}
+    <form action="/login/credentials" method="POST">
+        <div class="form-group">
+            <label for="username-input">Username</label>
+            <input type="text" id="username-input" name="username" placeholder="username@example.com" required autofocus>
+        </div>
+        <div class="form-group">
+            <label for="password-input">Password</label>
+            <input type="password" id="password-input" name="password" required>
+        </div>
+        <button type="submit" id="btn-sign-in" class="btn" style="width: 100%;">Sign In</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

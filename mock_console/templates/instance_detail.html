@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="nav-links">
+    <a href="/dashboard">Home</a>
+    <a href="/instances/create">Create Instance</a>
+</div>
+
+<h2>Instance Details</h2>
+
+<div style="margin-top: 20px; border: 1px solid #dee2e6; padding: 20px; border-radius: 4px; background-color: #fff;">
+    <table style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #dee2e6;">Instance Name</th>
+            <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">{{ instance.vm_name }}</td>
+        </tr>
+        <tr>
+            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #dee2e6;">Shape</th>
+            <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">{{ instance.shape }}</td>
+        </tr>
+        <tr>
+            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #dee2e6;">Image</th>
+            <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">{{ instance.image }}</td>
+        </tr>
+        <tr>
+            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #dee2e6;">Compartment</th>
+            <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">{{ instance.compartment }}</td>
+        </tr>
+        <tr>
+            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #dee2e6;">Status</th>
+            <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">
+                <span id="instance-status" style="font-weight: bold; color: #e0a800;">Provisioning</span>
+            </td>
+        </tr>
+        <tr id="ip-row" style="display: none;">
+            <th style="text-align: left; padding: 8px; border-bottom: 1px solid #dee2e6;">Public IP Address</th>
+            <td style="padding: 8px; border-bottom: 1px solid #dee2e6;">
+                <span id="detail-public-ip">129.146.12.34</span>
+            </td>
+        </tr>
+    </table>
+</div>
+
+<script>
+    setTimeout(function() {
+        var statusEl = document.getElementById('instance-status');
+        statusEl.innerText = 'Running';
+        statusEl.style.color = '#28a745';
+        document.getElementById('ip-row').style.display = 'table-row';
+    }, 1500);
+</script>
+{% endblock %}

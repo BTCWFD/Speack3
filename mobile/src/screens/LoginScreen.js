@@ -19,6 +19,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import MirrorButton from '../components/MirrorButton';
+import Speack3Logo from '../components/Speack3Logo';
 
 const LoginScreen = ({ navigation }) => {
     const { login, loading } = useAuth();
@@ -69,6 +70,9 @@ const LoginScreen = ({ navigation }) => {
             >
                 <Surface style={styles.surface}>
                     <View style={styles.header}>
+                        <View style={{ marginBottom: 24 }}>
+                            <Speack3Logo size={90} />
+                        </View>
                         <Title style={styles.title}>{t('auth.appName')}</Title>
                         <Text style={styles.subtitle}>{t('auth.tagline')}</Text>
                     </View>

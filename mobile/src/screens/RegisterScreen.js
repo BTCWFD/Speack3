@@ -20,6 +20,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import MirrorButton from '../components/MirrorButton';
+import Speack3Logo from '../components/Speack3Logo';
 
 const RegisterScreen = ({ navigation }) => {
     const { register, loading } = useAuth();
@@ -103,6 +104,9 @@ const RegisterScreen = ({ navigation }) => {
             >
                 <Surface style={styles.surface}>
                     <View style={styles.header}>
+                        <View style={{ marginBottom: 18 }}>
+                            <Speack3Logo size={70} />
+                        </View>
                         <Title style={styles.title}>{t('auth.createAccount')}</Title>
                         <Text style={styles.subtitle}>
                             {t('auth.registerSubtitle')}

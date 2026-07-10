@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="nav-links">
+    <a href="/dashboard">Home</a>
+    <a href="/instances/create" id="nav-instances">Instances</a>
+</div>
+<h2>Oracle Cloud Infrastructure Dashboard</h2>
+<div style="margin-top: 30px; padding: 20px; border: 1px solid #dee2e6; border-radius: 4px; background-color: #f8f9fa;">
+    <h3>Quick Actions</h3>
+    <p>Deploy a virtual machine instance in minutes.</p>
+    {% if session.get('scenario') != 'no_quick_create' %}
+    <a href="/instances/create" id="btn-quick-create-vm" class="btn">Create VM Instance</a>
+    {% endif %}
+</div>
+{% endblock %}

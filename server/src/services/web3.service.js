@@ -3,8 +3,8 @@ const { ethers } = require('ethers');
 class Web3Service {
     constructor() {
         // Initialize provider (could be Infura, Alchemy, or a local node)
-        // Using a generic RPC URL for structure
-        this.provider = new ethers.JsonRpcProvider(process.env.RPC_URL || 'https://cloudflare-eth.com');
+        // Using Polygon Amoy Testnet RPC for testing
+        this.provider = new ethers.JsonRpcProvider(process.env.RPC_URL || 'https://rpc-amoy.polygon.technology');
     }
 
     /**

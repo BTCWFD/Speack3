@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="nav-links">
+    <a href="/dashboard">Home</a>
+    <a href="/instances/create">Create Instance</a>
+</div>
+<h2>Create Compute Instance</h2>
+
+{% if placement_error %}
+<div class="alert alert-danger" id="placement-error">
+    {{ placement_error }}
+</div>
+{% endif %}
+
+<form action="/instances/create" method="POST" id="create-instance-form">
+    <div class="form-group">
+        <label for="vm-name-input">Name</label>
+        <input type="text" id="vm-name-input" name="vm_name" placeholder="speack3-server" value="{{ form_data.get('vm_name', '') }}">
+        {% if validation_error %}
+        <div class="invalid-feedback">{{ validation_error }}</div>
+        {% endif %}
+    </div>
+
+    <div class="form-group">
+        <label for="compartment-select">Compartment</label>
+        <select id="compartment-select" name="compartment">
+            <option value="root" {% if form_data.get('compartment') == 'root' %}selected{% endif %}>root (root)</option>
+            <option value="dev" {% if form_data.get('compartment') == 'dev' %}selected{% endif %}>development</option>
+            <option value="prod" {% if form_data.get('compartment') == 'prod' %}selected{% endif %}>production</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>Placement Availability Domain</label>
+        <div>
+            <label style="display:inline-block; font-weight:normal; margin-right:15px;">
+                <input type="radio" id="ad-1" name="ad" value="ad-1" checked> AD 1
+            </label>
+            <label style="display:inline-block; font-weight:normal; margin-right:15px;">
+                <input type="radio" id="ad-2" name="ad" value="ad-2"> AD 2
+            </label>
+            <label style="display:inline-block; font-weight:normal;">
+                <input type="radio" id="ad-3" name="ad" value="ad-3"> AD 3
+            </label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label for="fd-select">Fault Domain</label>
+        <select id="fd-select" name="fd">
+            <option value="fd-1">Fault Domain 1</option>
+            <option value="fd-2">Fault Domain 2</option>
+            <option value="fd-3">Fault Domain 3</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="image-select">Image</label>
+        <select id="image-select" name="image">
+            <option value="Oracle-Linux-8">Oracle Linux 8</option>
+            <option value="Ubuntu-22.04">Ubuntu 22.04</option>
+            <option value="CentOS-7">CentOS 7</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="shape-select">Shape</label>
+        <select id="shape-select" name="shape">
+            <option value="VM.Standard.E2.Micro">VM.Standard.E2.Micro (1 OCPU, 1 GB RAM)</option>
+            <option value="VM.Standard.E3.Flex">VM.Standard.E3.Flex</option>
+            <option value="VM.Standard.A1.Flex">VM.Standard.A1.Flex</option>
+        </select>
+    </div>
+
+    <div class="form-group" style="border: 1px solid #dee2e6; padding: 15px; border-radius: 4px;">
+        <label>Add SSH Keys</label>
+        <div style="margin-bottom: 10px;">
+            <label style="display:inline-block; font-weight:normal; margin-right:15px;">
+                <input type="radio" id="ssh-generate" name="ssh_key_option" value="generate" checked onclick="toggleSSHKeys()"> Generate a key pair for me
+            </label>
+            <label style="display:inline-block; font-weight:normal;">
+                <input type="radio" id="ssh-upload" name="ssh_key_option" value="upload" onclick="toggleSSHKeys()"> Upload public key (.pub)
+            </label>
+        </div>
+        <div id="ssh-download-buttons" style="margin-top: 10px;">
+            <a href="/download/private_key" id="btn-download-private-key" class="btn btn-secondary" style="font-size: 14px; padding: 6px 12px; margin-right: 10px;">Download Private Key</a>
+            <a href="/download/public_key" id="btn-download-public-key" class="btn btn-secondary" style="font-size: 14px; padding: 6px 12px;">Download Public Key</a>
+        </div>
+        <div id="ssh-upload-container" style="display: none; margin-top: 10px;">
+            <label for="ssh-file-input">Upload public key (.pub)</label>
+            <input type="file" id="ssh-file-input" name="ssh_file">
+        </div>
+    </div>
+
+    <div class="form-group" style="margin-top: 20px;">
+        <label>
+            <input type="checkbox" id="custom-boot-volume-checkbox" name="custom_boot_volume" onclick="toggleBootVolumeSize()"> Specify custom boot volume size
+        </label>
+        <div id="boot-volume-size-container" style="display:none; margin-top:10px;">
+            <label for="boot-volume-size">Boot Volume Size (GB)</label>
+            <input type="number" id="boot-volume-size" name="boot_volume_size" min="50" max="32768" value="50">
+        </div>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <button type="submit" id="btn-create-instance" class="btn">Create</button>
+        <a href="/dashboard" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+
+<script>
+    function toggleSSHKeys() {
+        var generate = document.getElementById('ssh-generate').checked;
+        var btnContainer = document.getElementById('ssh-download-buttons');
+        var uploadContainer = document.getElementById('ssh-upload-container');
+        if (generate) {
+            btnContainer.style.display = 'block';
+            if (uploadContainer) {
+                uploadContainer.style.display = 'none';
+            }
+        } else {
+            btnContainer.style.display = 'none';
+            if (uploadContainer) {
+                uploadContainer.style.display = 'block';
+            }
+        }
+    }
+    function toggleBootVolumeSize() {
+        var checkbox = document.getElementById('custom-boot-volume-checkbox');
+        var container = document.getElementById('boot-volume-size-container');
+        if (checkbox.checked) {
+            container.style.display = 'block';
+        } else {
+            container.style.display = 'none';
+        }
+    }
+    // Call on load to ensure correct state
+    toggleSSHKeys();
+    toggleBootVolumeSize();
+</script>
+{% endblock %}
