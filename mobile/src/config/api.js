@@ -13,8 +13,8 @@ const SERVER_HOST = '192.168.1.9'; // <-- change to your server's LAN IP for dev
 const SERVER_PORT = 3000;
 const PROD_HOST = '192.168.1.9'; // <-- change before release
 
-export const API_URL = `http://${SERVER_HOST}:${SERVER_PORT}`;
+export const API_URL = 'https://mean-lemons-pick.loca.lt';
 
-export const WS_URL = `ws://${SERVER_HOST}:${SERVER_PORT}`;
+export const WS_URL = 'wss://mean-lemons-pick.loca.lt';
 
 export const API_TIMEOUT = 10000;
