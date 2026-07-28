@@ -37,6 +37,12 @@ services:
       - ./nginx/active.conf:/etc/nginx/conf.d/default.conf:ro
       - certbot_www:/var/www/certbot
       - certbot_conf:/etc/letsencrypt
+    # Reload every 6h so renewed certificates are actually picked up: certbot
+    # rewrites them on disk, but nginx keeps serving the old ones until it
+    # reloads (which would break HTTPS ~90 days in, when the first cert expires).
+    command: >
+      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done &
+      nginx -g 'daemon off;'"
 
   certbot:
     image: certbot/certbot:latest
