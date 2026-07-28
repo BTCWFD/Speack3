@@ -19,5 +19,3 @@ const styles = StyleSheet.create({
 });
 
 export default Speack3Logo;
-
-export default Speack3Logo;

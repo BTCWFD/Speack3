@@ -21,6 +21,11 @@ const setupSocketHandlers = require('./sockets/messageHandler');
 const app = express();
 const server = http.createServer(app);
 
+// Trust the first hop proxy (loca.lt tunnel / nginx reverse proxy) so
+// express-rate-limit and req.ip resolve the real client IP from
+// X-Forwarded-For instead of throwing ERR_ERL_UNEXPECTED_X_FORWARDED_FOR.
+app.set('trust proxy', 1);
+
 // Resolve allowed CORS origins.
 // In production we fail closed: if ALLOWED_ORIGINS is not set we deny all
 // cross-origin requests rather than falling back to a permissive wildcard.
