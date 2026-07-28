@@ -2,8 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-// Using NeDB instead of MongoDB for quick development
-const mongoose = require('./config/nedb');
+// Data layer: MongoDB when MONGODB_URI is set, NeDB file store otherwise
+const db = require('./config/database');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -130,12 +130,12 @@ app.use((err, req, res, next) => {
 // Setup Socket.io handlers
 setupSocketHandlers(io);
 
-// NeDB Connection
+// Database connection
 const connectDB = async () => {
     try {
-        await mongoose.connect();
+        await db.connect();
     } catch (error) {
-        console.error('❌ NeDB connection error:', error);
+        console.error('❌ Database connection error:', error);
         process.exit(1);
     }
 };
@@ -160,8 +160,8 @@ process.on('SIGTERM', () => {
     console.log('\n👋 SIGTERM received, shutting down gracefully...');
     server.close(() => {
         console.log('✅ Server closed');
-        mongoose.connection.close(false, () => {
-            console.log('✅ MongoDB connection closed');
+        db.connection.close(false, () => {
+            console.log('✅ Database connection closed');
             process.exit(0);
         });
     });

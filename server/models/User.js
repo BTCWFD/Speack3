@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const { users } = require('../config/nedb');
+const { users } = require('../config/database');
 
 class UserModel {
   async create(userData) {

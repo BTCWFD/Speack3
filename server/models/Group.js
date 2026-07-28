@@ -1,4 +1,4 @@
-const { groups } = require('../config/nedb');
+const { groups } = require('../config/database');
 
 class GroupModel {
     async create(data) {

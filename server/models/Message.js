@@ -1,4 +1,4 @@
-const { messages } = require('../config/nedb');
+const { messages } = require('../config/database');
 
 class MessageModel {
     async create(data) {
