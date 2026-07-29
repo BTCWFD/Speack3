@@ -11,7 +11,7 @@ const Product = require('../models/Product');
 const CATALOG = [
     { name: 'Fresa', emoji: '🍓', priceCOP: 60000 },
     { name: 'Coco', emoji: '🥥', priceCOP: 40000 },
-    { name: 'Piña', emoji: '🍍', priceCOP: 40000 },
+    { name: 'Pila', emoji: '🔋', priceCOP: 40000 },
     { name: 'Cuadro', emoji: '⬜', priceCOP: 50000 }
 ];
 

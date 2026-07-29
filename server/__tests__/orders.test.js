@@ -48,7 +48,7 @@ describe('Shop catalog + orders', () => {
             const res = await request(app)
                 .post('/api/products')
                 .set('Authorization', `Bearer ${admin.token}`)
-                .send({ name: 'Piña', emoji: '🍍', priceCOP: 40000 });
+                .send({ name: 'Pila', emoji: '🔋', priceCOP: 40000 });
 
             expect(res.status).toBe(201);
         });
