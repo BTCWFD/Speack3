@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const shopAdmin = require('../middleware/shopAdmin');
+const { isShopAdmin } = require('../middleware/shopAdmin');
 const Product = require('../models/Product');
 
 // @route   GET /api/products
@@ -10,7 +11,7 @@ const Product = require('../models/Product');
 // @access  Private
 router.get('/', auth, async (req, res) => {
     try {
-        const showAll = req.query.all === '1' && req.user?.email?.toLowerCase() === process.env.SHOP_ADMIN_EMAIL?.toLowerCase();
+        const showAll = req.query.all === '1' && isShopAdmin(req.user);
         const products = await Product.find(showAll ? {} : { active: true });
 
         res.json({ products });

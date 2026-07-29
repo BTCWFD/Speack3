@@ -1,16 +1,44 @@
-// Speack3's product catalog is single-vendor: only the seller (Wilfredo) can
-// create/edit products and manage orders. Identity is checked by email
-// against SHOP_ADMIN_EMAIL rather than a stored role, since there is exactly
-// one seller. Fails closed if the env var isn't set, same convention as
-// resolveCorsOrigins() in server.js.
-const shopAdmin = (req, res, next) => {
-    const adminEmail = process.env.SHOP_ADMIN_EMAIL;
-
-    if (!adminEmail) {
-        return res.status(503).json({ error: 'Shop admin not configured (SHOP_ADMIN_EMAIL unset)' });
+// Speack3's product catalog is single-vendor: only the seller can create/edit
+// products and manage orders.
+//
+// The admin is pinned by user id (SHOP_ADMIN_USER_ID) rather than by email:
+// registration is open, so whoever signs up with the admin address first would
+// otherwise inherit the shop. An id is assigned by the server at registration
+// and can't be claimed by signing up.
+//
+// SHOP_ADMIN_EMAIL is still honoured as a fallback so an existing deployment
+// keeps working, but it's only safe while the admin account already exists —
+// hence the startup warning in server.js. Fails closed if neither is set, same
+// convention as resolveCorsOrigins().
+const isShopAdmin = (user) => {
+    const adminId = process.env.SHOP_ADMIN_USER_ID;
+    if (adminId) {
+        // req.user is the raw stored document, which carries _id; API responses
+        // expose the same value as `id`. Accept either so callers don't have to
+        // care which shape they're holding.
+        const userId = user?._id ?? user?.id;
+        return Boolean(userId) && String(userId) === String(adminId);
     }
 
-    if (req.user?.email?.toLowerCase() !== adminEmail.toLowerCase()) {
+    const adminEmail = process.env.SHOP_ADMIN_EMAIL;
+    if (adminEmail) {
+        return user?.email?.toLowerCase() === adminEmail.toLowerCase();
+    }
+
+    return false;
+};
+
+const isShopAdminConfigured = () =>
+    Boolean(process.env.SHOP_ADMIN_USER_ID || process.env.SHOP_ADMIN_EMAIL);
+
+const shopAdmin = (req, res, next) => {
+    if (!isShopAdminConfigured()) {
+        return res.status(503).json({
+            error: 'Shop admin not configured (set SHOP_ADMIN_USER_ID)'
+        });
+    }
+
+    if (!isShopAdmin(req.user)) {
         return res.status(403).json({ error: 'Only the shop admin can perform this action' });
     }
 
@@ -18,3 +46,5 @@ const shopAdmin = (req, res, next) => {
 };
 
 module.exports = shopAdmin;
+module.exports.isShopAdmin = isShopAdmin;
+module.exports.isShopAdminConfigured = isShopAdminConfigured;

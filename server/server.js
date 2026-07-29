@@ -172,6 +172,21 @@ const startServer = async () => {
         console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
         console.log(`   Health check: http://localhost:${PORT}/health`);
         console.log(`   WebSocket: ws://localhost:${PORT}`);
+
+        if (process.env.SHOP_ADMIN_USER_ID) {
+            console.log(`   Shop admin: user id ${process.env.SHOP_ADMIN_USER_ID}`);
+        } else if (process.env.SHOP_ADMIN_EMAIL) {
+            // Registration is open, so an address that has no account yet is
+            // claimable by whoever signs up with it first.
+            console.warn(
+                `   ⚠️  Shop admin set by email (${process.env.SHOP_ADMIN_EMAIL}). ` +
+                'Anyone who registers that address first becomes the admin — ' +
+                'switch to SHOP_ADMIN_USER_ID once the account exists.'
+            );
+        } else {
+            console.warn('   ⚠️  Shop admin not configured: set SHOP_ADMIN_USER_ID.');
+        }
+
         console.log('\n📡 Ready to accept connections...\n');
     });
 };

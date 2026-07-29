@@ -33,6 +33,53 @@ describe('Shop catalog + orders', () => {
         admin = await registerUser(app, { email: ADMIN_EMAIL });
     });
 
+    describe('admin pinned by user id', () => {
+        // SHOP_ADMIN_USER_ID takes precedence over the email fallback, so that
+        // registering the admin's address can't hand over the shop.
+        afterEach(() => {
+            delete process.env.SHOP_ADMIN_USER_ID;
+            process.env.SHOP_ADMIN_EMAIL = ADMIN_EMAIL;
+        });
+
+        it('grants access by id even when the email does not match', async () => {
+            process.env.SHOP_ADMIN_USER_ID = admin.id;
+            process.env.SHOP_ADMIN_EMAIL = 'someone-else@speack3.test';
+
+            const res = await request(app)
+                .post('/api/products')
+                .set('Authorization', `Bearer ${admin.token}`)
+                .send({ name: 'Piña', emoji: '🍍', priceCOP: 40000 });
+
+            expect(res.status).toBe(201);
+        });
+
+        it('denies someone who merely owns the admin email once an id is pinned', async () => {
+            const impostor = await registerUser(app);
+            process.env.SHOP_ADMIN_USER_ID = admin.id;
+            // Even if the env still names an address the impostor controls,
+            // the id is what counts.
+            process.env.SHOP_ADMIN_EMAIL = impostor.payload.email;
+
+            const res = await request(app)
+                .post('/api/products')
+                .set('Authorization', `Bearer ${impostor.token}`)
+                .send({ name: 'Robado', emoji: '🏴', priceCOP: 1 });
+
+            expect(res.status).toBe(403);
+        });
+
+        it('fails closed when neither id nor email is configured', async () => {
+            delete process.env.SHOP_ADMIN_EMAIL;
+
+            const res = await request(app)
+                .post('/api/products')
+                .set('Authorization', `Bearer ${admin.token}`)
+                .send({ name: 'Nadie', emoji: '🚫', priceCOP: 1 });
+
+            expect(res.status).toBe(503);
+        });
+    });
+
     it('only the shop admin (by SHOP_ADMIN_EMAIL) can create products', async () => {
         const buyer = await registerUser(app);
 
