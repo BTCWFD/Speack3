@@ -17,6 +17,8 @@ const productRoutes = require('./api/products');
 const orderRoutes = require('./api/orders');
 const slotRoutes = require('./api/slots');
 const deliveryRoutes = require('./api/delivery');
+const sellerRoutes = require('./api/sellers');
+const legalRoutes = require('./api/legal');
 
 // Import socket handlers
 const setupSocketHandlers = require('./sockets/messageHandler');
@@ -137,6 +139,8 @@ app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/delivery', deliveryRoutes);
+app.use('/api/sellers', sellerRoutes);
+app.use('/api/legal', legalRoutes);
 
 // 404 handler
 app.use((req, res) => {
