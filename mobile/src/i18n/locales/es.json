@@ -213,7 +213,7 @@
     },
     "paymentStatus": {
       "unpaid": "Sin pagar",
-      "pending": "Pago pendiente de confirmar",
+      "pending": "Pago por confirmar",
       "paid": "Pagado"
     },
     "method": {

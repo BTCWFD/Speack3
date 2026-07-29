@@ -213,7 +213,7 @@
     },
     "paymentStatus": {
       "unpaid": "Unpaid",
-      "pending": "Payment pending confirmation",
+      "pending": "Payment to confirm",
       "paid": "Paid"
     },
     "method": {

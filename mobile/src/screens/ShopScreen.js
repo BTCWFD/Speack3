@@ -207,11 +207,19 @@ const ShopScreen = () => {
                 <View style={styles.orderFooter}>
                     <Text style={[styles.orderTotal, { color: theme.colors.primary }]}>{formatCOP(item.totalCOP)}</Text>
                     {item.paymentStatus === 'paid' ? (
-                        <Chip icon="check-circle" style={{ backgroundColor: '#4CAF5022' }} textStyle={{ color: '#4CAF50' }}>
+                        <Chip
+                            icon="check-circle"
+                            style={[styles.paymentChip, { backgroundColor: '#4CAF5022' }]}
+                            textStyle={{ color: '#4CAF50' }}
+                        >
                             {t('shop.paymentStatus.paid')}
                         </Chip>
                     ) : item.paymentStatus === 'pending' ? (
-                        <Chip icon="clock-outline" style={{ backgroundColor: '#FF980022' }} textStyle={{ color: '#FF9800' }}>
+                        <Chip
+                            icon="clock-outline"
+                            style={[styles.paymentChip, { backgroundColor: '#FF980022' }]}
+                            textStyle={{ color: '#FF9800' }}
+                        >
                             {t('shop.paymentStatus.pending')}
                         </Chip>
                     ) : (
@@ -406,8 +414,11 @@ const styles = StyleSheet.create({
     orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     orderItems: { flex: 1, fontSize: 14, marginRight: 8 },
     orderMeta: { fontSize: 12, marginTop: 6 },
-    orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
-    orderTotal: { fontSize: 16, fontWeight: 'bold' },
+    orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, gap: 8 },
+    orderTotal: { fontSize: 16, fontWeight: 'bold', flexShrink: 0 },
+    // Payment status labels are long in Spanish ("Pago pendiente de confirmar")
+    // and would otherwise push the chip past the card's right edge.
+    paymentChip: { flexShrink: 1 },
     dialogArea: { maxHeight: 360 },
     dialogLabel: { fontSize: 13, fontWeight: '600', marginTop: 12, marginBottom: 6 },
     chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
