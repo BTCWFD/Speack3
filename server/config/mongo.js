@@ -102,13 +102,17 @@ class Collection {
 const collections = {
     users: new Collection('users'),
     messages: new Collection('messages'),
-    groups: new Collection('groups')
+    groups: new Collection('groups'),
+    products: new Collection('products'),
+    orders: new Collection('orders')
 };
 
 module.exports = {
     users: collections.users,
     messages: collections.messages,
     groups: collections.groups,
+    products: collections.products,
+    orders: collections.orders,
 
     connect: async () => {
         client = new MongoClient(process.env.MONGODB_URI);

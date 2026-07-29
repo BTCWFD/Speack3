@@ -227,6 +227,91 @@ class ApiService {
         }
     }
 
+    // Shop endpoints
+    async getProducts(all = false) {
+        try {
+            const response = await this.client.get('/api/products', { params: all ? { all: '1' } : {} });
+            return response.data.products;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async createProduct(product) {
+        try {
+            const response = await this.client.post('/api/products', product);
+            return response.data.product;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async updateProduct(productId, update) {
+        try {
+            const response = await this.client.put(`/api/products/${productId}`, update);
+            return response.data.product;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async createOrder(order) {
+        try {
+            const response = await this.client.post('/api/orders', order);
+            return response.data.order;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async getMyOrders() {
+        try {
+            const response = await this.client.get('/api/orders/mine');
+            return response.data.orders;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async getAllOrders() {
+        try {
+            const response = await this.client.get('/api/orders');
+            return response.data.orders;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async updateOrderStatus(orderId, status, confirmedDeliveryTime) {
+        try {
+            const response = await this.client.patch(`/api/orders/${orderId}/status`, {
+                status,
+                ...(confirmedDeliveryTime ? { confirmedDeliveryTime } : {})
+            });
+            return response.data.order;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async payOrder(orderId, method, extra = {}) {
+        try {
+            const response = await this.client.post(`/api/orders/${orderId}/pay`, { method, ...extra });
+            return response.data.order;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async confirmOrderPayment(orderId, paid) {
+        try {
+            const response = await this.client.patch(`/api/orders/${orderId}/confirm-payment`, { paid });
+            return response.data.order;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     // Error handling
     handleError(error) {
         if (error.response) {

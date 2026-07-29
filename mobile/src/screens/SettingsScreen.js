@@ -18,7 +18,7 @@ import { useThemeMode } from '../context/ThemeContext';
 import { setAppLanguage } from '../i18n';
 import MirrorButton from '../components/MirrorButton';
 
-const SettingsScreen = () => {
+const SettingsScreen = ({ navigation }) => {
     const { user, logout, updateAvatar } = useAuth();
     const { isDark, mode, setThemeMode, palette, setThemePalette, palettes } = useThemeMode();
     const theme = useTheme();
@@ -245,6 +245,18 @@ const SettingsScreen = () => {
                         title={t('settings.email')}
                         description={user?.email || '—'}
                         left={(props) => <List.Icon {...props} icon="email" />}
+                    />
+                </List.Section>
+
+                <Divider />
+
+                <List.Section>
+                    <List.Subheader>{t('shop.title')}</List.Subheader>
+                    <List.Item
+                        title={t('shop.adminTitle')}
+                        description={t('shop.adminSettingsDesc')}
+                        left={(props) => <List.Icon {...props} icon="storefront-outline" />}
+                        onPress={() => navigation.navigate('Tienda', { screen: 'ShopAdmin' })}
                     />
                 </List.Section>
 

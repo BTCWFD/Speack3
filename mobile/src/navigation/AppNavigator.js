@@ -16,6 +16,8 @@ import CreateGroupScreen from '../screens/CreateGroupScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import GroupInfoScreen from '../screens/GroupInfoScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ShopScreen from '../screens/ShopScreen';
+import ShopAdminScreen from '../screens/ShopAdminScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -40,6 +42,13 @@ const ChatStack = () => (
     </Stack.Navigator>
 );
 
+const ShopStack = () => (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Shop" component={ShopScreen} />
+        <Stack.Screen name="ShopAdmin" component={ShopAdminScreen} />
+    </Stack.Navigator>
+);
+
 // Main Tab Navigator
 export const MainNavigator = () => {
     const { t } = useTranslation();
@@ -59,6 +68,16 @@ export const MainNavigator = () => {
                     tabBarLabel: t('settings.chats'),
                     tabBarIcon: ({ color, size }) => (
                         <Icon name="message-text" size={size} color={color} />
+                    )
+                }}
+            />
+            <Tab.Screen
+                name="Tienda"
+                component={ShopStack}
+                options={{
+                    tabBarLabel: t('shop.title'),
+                    tabBarIcon: ({ color, size }) => (
+                        <Icon name="storefront-outline" size={size} color={color} />
                     )
                 }}
             />

@@ -179,5 +179,52 @@
     "message": "A new version ({{version}}) of Speack3 is available.",
     "later": "Later",
     "now": "Update"
+  },
+  "shop": {
+    "title": "Shop",
+    "catalog": "Catalog",
+    "myOrders": "My Orders",
+    "cartSummary": "{{count}} in cart",
+    "requestOrder": "Request order",
+    "deliveryTime": "Delivery time",
+    "pickDay": "Pick a day",
+    "pickSlot": "Pick a time slot",
+    "notes": "Notes for the order (optional)",
+    "noOrdersYet": "You don't have any orders yet",
+    "requestedFor": "For {{date}}",
+    "pay": "Pay",
+    "payWith": "Pay with?",
+    "txHash": "Transaction hash",
+    "reference": "Reference number / receipt",
+    "submitPayment": "Confirm payment",
+    "manualConfirmHint": "The seller confirms this payment by hand after checking their account.",
+    "txHashRequired": "The transaction hash is required to verify it on-chain.",
+    "markPaid": "Mark as paid",
+    "adminTitle": "Shop admin panel",
+    "adminSettingsDesc": "Manage catalog, orders and payments",
+    "noAccess": "Only the seller can view this section",
+    "status": {
+      "waitlist": "Waitlist",
+      "confirmed": "Confirmed",
+      "preparing": "Preparing",
+      "ready": "Ready",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled"
+    },
+    "paymentStatus": {
+      "unpaid": "Unpaid",
+      "pending": "Payment pending confirmation",
+      "paid": "Paid"
+    },
+    "method": {
+      "nequi": "Nequi",
+      "crypto": "Crypto (Web3)",
+      "breb": "Bre-B"
+    },
+    "slot": {
+      "morning": "Morning",
+      "afternoon": "Afternoon",
+      "evening": "Evening"
+    }
   }
 }

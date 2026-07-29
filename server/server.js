@@ -13,6 +13,8 @@ const authRoutes = require('./api/auth');
 const userRoutes = require('./api/users');
 const groupRoutes = require('./api/groups');
 const messageRoutes = require('./api/messages');
+const productRoutes = require('./api/products');
+const orderRoutes = require('./api/orders');
 
 // Import socket handlers
 const setupSocketHandlers = require('./sockets/messageHandler');
@@ -129,6 +131,8 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/orders', orderRoutes);
 
 // 404 handler
 app.use((req, res) => {

@@ -179,5 +179,52 @@
     "message": "Hay una nueva versión ({{version}}) de Speack3.",
     "later": "Luego",
     "now": "Actualizar"
+  },
+  "shop": {
+    "title": "Tienda",
+    "catalog": "Catálogo",
+    "myOrders": "Mis Pedidos",
+    "cartSummary": "{{count}} en el carrito",
+    "requestOrder": "Solicitar pedido",
+    "deliveryTime": "Hora de entrega",
+    "pickDay": "Elige el día",
+    "pickSlot": "Elige el horario",
+    "notes": "Notas para el pedido (opcional)",
+    "noOrdersYet": "Todavía no tienes pedidos",
+    "requestedFor": "Para el {{date}}",
+    "pay": "Pagar",
+    "payWith": "¿Con qué pagas?",
+    "txHash": "Hash de la transacción",
+    "reference": "Número de referencia / comprobante",
+    "submitPayment": "Confirmar pago",
+    "manualConfirmHint": "El vendedor confirma este pago manualmente al revisar su cuenta.",
+    "txHashRequired": "Se necesita el hash de la transacción para verificarla en la blockchain.",
+    "markPaid": "Marcar pagado",
+    "adminTitle": "Panel de tienda",
+    "adminSettingsDesc": "Gestionar catálogo, pedidos y pagos",
+    "noAccess": "Solo el vendedor puede ver esta sección",
+    "status": {
+      "waitlist": "Lista de espera",
+      "confirmed": "Confirmado",
+      "preparing": "Preparando",
+      "ready": "Listo",
+      "delivered": "Entregado",
+      "cancelled": "Cancelado"
+    },
+    "paymentStatus": {
+      "unpaid": "Sin pagar",
+      "pending": "Pago pendiente de confirmar",
+      "paid": "Pagado"
+    },
+    "method": {
+      "nequi": "Nequi",
+      "crypto": "Cripto (Web3)",
+      "breb": "Bre-B"
+    },
+    "slot": {
+      "morning": "Mañana",
+      "afternoon": "Tarde",
+      "evening": "Noche"
+    }
   }
 }

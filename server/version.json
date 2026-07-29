@@ -1,6 +1,6 @@
 {
-    "versionCode": 2,
-    "versionName": "1.1",
+    "versionCode": 3,
+    "versionName": "1.2",
     "apkUrl": "https://github.com/BTCWFD/Speack3/releases/download/apk-latest/app-release.apk",
-    "notes": "Backend movido a un servidor permanente + chequeo de actualizaciones."
+    "notes": "Nueva pestana Tienda: catalogo, pedidos con hora de entrega y pago (Nequi/cripto/Bre-B)."
 }
