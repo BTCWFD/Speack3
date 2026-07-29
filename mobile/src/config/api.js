@@ -13,8 +13,8 @@ const SERVER_HOST = '192.168.1.9'; // <-- change to your server's LAN IP for dev
 const SERVER_PORT = 3000;
 const PROD_HOST = '192.168.1.9'; // <-- change before release
 
-export const API_URL = 'https://dice-invention-pants-acc.trycloudflare.com';
+export const API_URL = 'https://turtle-entrepreneur-violations-showtimes.trycloudflare.com';
 
-export const WS_URL = 'wss://dice-invention-pants-acc.trycloudflare.com';
+export const WS_URL = 'wss://turtle-entrepreneur-violations-showtimes.trycloudflare.com';
 
 export const API_TIMEOUT = 10000;
