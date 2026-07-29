@@ -20,7 +20,8 @@ const collections = {
     groups: Datastore.create(storeOptions('groups.db')),
     products: Datastore.create(storeOptions('products.db')),
     orders: Datastore.create(storeOptions('orders.db')),
-    deliverySlots: Datastore.create(storeOptions('deliverySlots.db'))
+    deliverySlots: Datastore.create(storeOptions('deliverySlots.db')),
+    shopSettings: Datastore.create(storeOptions('shopSettings.db'))
 };
 
 // Create indexes
@@ -34,6 +35,7 @@ module.exports = {
     products: collections.products,
     orders: collections.orders,
     deliverySlots: collections.deliverySlots,
+    shopSettings: collections.shopSettings,
     connect: () => {
         console.log('✅ NeDB Connected (File-based database)');
         return Promise.resolve();

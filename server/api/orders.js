@@ -9,6 +9,8 @@ const User = require('../models/User');
 const web3PaymentService = require('../services/web3PaymentService');
 const { checkCapacity } = require('../services/capacityService');
 const { priceLine } = require('../services/pricingService');
+const { quote: quoteDelivery } = require('../services/deliveryService');
+const ShopSettings = require('../models/ShopSettings');
 
 const VALID_STATUSES = ['waitlist', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 const VALID_METHODS = ['nequi', 'crypto', 'breb'];
@@ -66,11 +68,41 @@ router.post('/', [
             totalSavedCOP += savedCOP;
         }
 
+        // Domicilio opcional: si el cliente manda un destino se cotiza aqui y
+        // se suma al total. La tarifa NUNCA se acepta del cliente, igual que
+        // los precios: se recalcula contra la ubicacion de la tienda.
+        let delivery = null;
+        if (req.body.destination) {
+            const origin = await ShopSettings.getLocation();
+            if (!origin) {
+                return res.status(503).json({
+                    error: 'La tienda aun no tiene ubicacion configurada para domicilios',
+                    reason: 'no_origin'
+                });
+            }
+
+            const { lat, lng, address } = req.body.destination;
+            const quoted = quoteDelivery(origin, { lat: Number(lat), lng: Number(lng) });
+            if (!quoted.ok) {
+                return res.status(422).json({ error: quoted.error, reason: quoted.reason });
+            }
+
+            delivery = {
+                lat: Number(lat),
+                lng: Number(lng),
+                address: address || '',
+                km: quoted.km,
+                feeCOP: quoted.feeCOP
+            };
+            totalCOP += quoted.feeCOP;
+        }
+
         const order = await Order.create({
             buyerId: req.userId,
             items,
             totalCOP,
             totalSavedCOP,
+            delivery,
             requestedDeliveryTime,
             notes: req.body.notes || ''
         });

@@ -105,7 +105,8 @@ const collections = {
     groups: new Collection('groups'),
     products: new Collection('products'),
     orders: new Collection('orders'),
-    deliverySlots: new Collection('deliverySlots')
+    deliverySlots: new Collection('deliverySlots'),
+    shopSettings: new Collection('shopSettings')
 };
 
 module.exports = {
@@ -115,6 +116,7 @@ module.exports = {
     products: collections.products,
     orders: collections.orders,
     deliverySlots: collections.deliverySlots,
+    shopSettings: collections.shopSettings,
 
     connect: async () => {
         client = new MongoClient(process.env.MONGODB_URI);
