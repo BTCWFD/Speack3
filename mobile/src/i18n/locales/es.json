@@ -208,6 +208,7 @@
       "confirmed": "Confirmado",
       "preparing": "Preparando",
       "ready": "Listo",
+      "on_the_way": "En camino",
       "delivered": "Entregado",
       "cancelled": "Cancelado"
     },

@@ -42,6 +42,7 @@ const STATUS_COLORS = {
     confirmed: '#2196F3',
     preparing: '#FF9800',
     ready: '#4CAF50',
+    on_the_way: '#03A9F4',
     delivered: '#4CAF50',
     cancelled: '#F44336'
 };
@@ -71,6 +72,10 @@ const ShopScreen = ({ navigation }) => {
     const [payRef, setPayRef] = useState('');
     const [paying, setPaying] = useState(false);
     const [receipt, setReceipt] = useState(null);
+    const [payCashCOP, setPayCashCOP] = useState('');
+
+    const cashAmount = Math.max(0, Math.min(parseInt(payCashCOP, 10) || 0, payOrder?.totalCOP || 0));
+    const cashRemaining = payOrder ? payOrder.totalCOP - cashAmount : 0;
 
     const [repeatSource, setRepeatSource] = useState(null);
     const [destination, setDestination] = useState(null);
@@ -155,6 +160,7 @@ const ShopScreen = ({ navigation }) => {
         setPayMethod(null);
         setPayRef('');
         setReceipt(null);
+        setPayCashCOP('');
     };
 
     // Captura de la transferencia. Se comprime bastante: el servidor rechaza
@@ -269,17 +275,24 @@ const ShopScreen = ({ navigation }) => {
     };
 
     const submitPayment = async () => {
-        if (!payMethod) return;
-        if (payMethod === 'crypto' && !payRef.trim()) {
+        // Si el efectivo cubre todo el pedido no hace falta metodo: no hay
+        // nada que pagar por Nequi/Bre-B/cripto.
+        if (cashRemaining > 0 && !payMethod) return;
+        if (cashRemaining > 0 && payMethod === 'crypto' && !payRef.trim()) {
             Alert.alert(t('common.error'), t('shop.txHashRequired'));
             return;
         }
         setPaying(true);
         try {
-            const extra = payMethod === 'crypto'
-                ? { txHash: payRef.trim() }
-                : { reference: payRef.trim(), ...(receipt ? { receipt } : {}) };
-            await ApiService.payOrder(payOrder._id, payMethod, extra);
+            const extra = {
+                ...(cashAmount > 0 ? { cashCOP: cashAmount } : {}),
+                ...(cashRemaining === 0
+                    ? {}
+                    : payMethod === 'crypto'
+                        ? { method: 'crypto', txHash: payRef.trim() }
+                        : { method: payMethod, reference: payRef.trim(), ...(receipt ? { receipt } : {}) })
+            };
+            await ApiService.payOrder(payOrder._id, extra.method, extra);
             setPayOrder(null);
             loadOrders();
         } catch (e) {
@@ -590,14 +603,39 @@ const ShopScreen = ({ navigation }) => {
                 <Dialog visible={!!payOrder} onDismiss={() => setPayOrder(null)}>
                     <Dialog.Title>{t('shop.payWith')}</Dialog.Title>
                     <Dialog.Content>
-                        <View style={styles.chipsRow}>
-                            {PAYMENT_METHODS.map((m) => (
-                                <Chip key={m} selected={payMethod === m} onPress={() => setPayMethod(m)} style={styles.chip}>
-                                    {t(`shop.method.${m}`)}
-                                </Chip>
-                            ))}
-                        </View>
-                        {payMethod && (
+                        {/* Parte en efectivo, opcional. Si cubre el total no
+                            hace falta elegir metodo: no hay nada que
+                            verificar por Nequi/Bre-B/cripto. */}
+                        <TextInput
+                            mode="outlined"
+                            label="¿Cuánto pagas en efectivo? (opcional)"
+                            value={payCashCOP}
+                            onChangeText={setPayCashCOP}
+                            keyboardType="number-pad"
+                            placeholder="0"
+                            style={styles.notesInput}
+                        />
+                        {payOrder && cashRemaining > 0 && (
+                            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                                Efectivo se cobra al entregar. Falta pagar {formatCOP(cashRemaining)} por:
+                            </Text>
+                        )}
+                        {payOrder && cashRemaining === 0 && Number(payCashCOP) > 0 && (
+                            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                                Todo el pedido queda en efectivo, se cobra al entregar.
+                            </Text>
+                        )}
+
+                        {cashRemaining > 0 && (
+                            <View style={styles.chipsRow}>
+                                {PAYMENT_METHODS.map((m) => (
+                                    <Chip key={m} selected={payMethod === m} onPress={() => setPayMethod(m)} style={styles.chip}>
+                                        {t(`shop.method.${m}`)}
+                                    </Chip>
+                                ))}
+                            </View>
+                        )}
+                        {cashRemaining > 0 && payMethod && (
                             <TextInput
                                 mode="outlined"
                                 label={payMethod === 'crypto' ? t('shop.txHash') : t('shop.reference')}
@@ -609,7 +647,7 @@ const ShopScreen = ({ navigation }) => {
                         {/* El comprobante acelera la verificacion: el vendedor
                             ve la transferencia en vez de buscarla a ciegas.
                             Sigue siendo opcional. */}
-                        {payMethod && payMethod !== 'crypto' && (
+                        {cashRemaining > 0 && payMethod && payMethod !== 'crypto' && (
                             <View style={styles.receiptSection}>
                                 <Button
                                     mode="outlined"
@@ -636,7 +674,7 @@ const ShopScreen = ({ navigation }) => {
                             </View>
                         )}
 
-                        {payMethod && payMethod !== 'crypto' && (
+                        {cashRemaining > 0 && payMethod && payMethod !== 'crypto' && (
                             <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
                                 {t('shop.manualConfirmHint')}
                             </Text>
@@ -644,7 +682,12 @@ const ShopScreen = ({ navigation }) => {
                     </Dialog.Content>
                     <Dialog.Actions>
                         <Button onPress={() => setPayOrder(null)}>{t('common.cancel')}</Button>
-                        <Button mode="contained" disabled={!payMethod || paying} loading={paying} onPress={submitPayment}>
+                        <Button
+                            mode="contained"
+                            disabled={(cashRemaining > 0 && !payMethod) || paying}
+                            loading={paying}
+                            onPress={submitPayment}
+                        >
                             {t('shop.submitPayment')}
                         </Button>
                     </Dialog.Actions>

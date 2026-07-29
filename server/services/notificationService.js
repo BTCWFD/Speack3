@@ -50,6 +50,7 @@ const STATUS_LABEL = {
     confirmed: 'confirmado',
     preparing: 'en preparacion',
     ready: 'listo',
+    on_the_way: 'en camino',
     delivered: 'entregado',
     cancelled: 'cancelado'
 };

@@ -208,6 +208,7 @@
       "confirmed": "Confirmed",
       "preparing": "Preparing",
       "ready": "Ready",
+      "on_the_way": "On the way",
       "delivered": "Delivered",
       "cancelled": "Cancelled"
     },

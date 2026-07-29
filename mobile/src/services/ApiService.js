@@ -287,11 +287,12 @@ class ApiService {
         }
     }
 
-    async updateOrderStatus(orderId, status, confirmedDeliveryTime) {
+    async updateOrderStatus(orderId, status, confirmedDeliveryTime, courierLocation) {
         try {
             const response = await this.client.patch(`/api/orders/${orderId}/status`, {
                 status,
-                ...(confirmedDeliveryTime ? { confirmedDeliveryTime } : {})
+                ...(confirmedDeliveryTime ? { confirmedDeliveryTime } : {}),
+                ...(courierLocation ? { courierLocation } : {})
             });
             return response.data.order;
         } catch (error) {
@@ -311,6 +312,16 @@ class ApiService {
     async confirmOrderPayment(orderId, paid) {
         try {
             const response = await this.client.patch(`/api/orders/${orderId}/confirm-payment`, { paid });
+            return response.data.order;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Marca cobrada (o no) la parte en efectivo de un pedido mixto.
+    async confirmOrderCash(orderId, collected) {
+        try {
+            const response = await this.client.patch(`/api/orders/${orderId}/confirm-cash`, { collected });
             return response.data.order;
         } catch (error) {
             throw this.handleError(error);

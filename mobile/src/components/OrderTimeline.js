@@ -1,15 +1,20 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, useTheme } from 'react-native-paper';
+import { View, StyleSheet, Linking } from 'react-native';
+import { Text, Button, useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 // Pasos por los que pasa un pedido, en orden. "cancelado" no esta aqui porque
 // no es un paso mas: corta la linea, y se dibuja aparte.
+//
+// "on_the_way" (en camino) es el unico paso pensado especificamente para
+// domicilios: separa "ya esta listo, sigue en la tienda" de "ya salio", que
+// es la pregunta real del comprador ("¿ya viene?").
 const STEPS = [
     { status: 'waitlist', label: 'En espera', icon: 'clock-outline' },
     { status: 'confirmed', label: 'Confirmado', icon: 'check-circle-outline' },
     { status: 'preparing', label: 'Preparando', icon: 'package-variant' },
     { status: 'ready', label: 'Listo', icon: 'check-all' },
+    { status: 'on_the_way', label: 'En camino', icon: 'moped' },
     { status: 'delivered', label: 'Entregado', icon: 'hand-heart-outline' }
 ];
 
@@ -93,6 +98,26 @@ const OrderTimeline = ({ order }) => {
                                     {formatWhen(whenByStatus[step.status])}
                                 </Text>
                             ) : null}
+
+                            {/* No es tracking en vivo (eso exigiria mandar la
+                                posicion cada pocos segundos desde el celular
+                                del vendedor): es una foto de "aqui estoy
+                                cuando sali", que basta para la pregunta real
+                                del comprador. */}
+                            {step.status === 'on_the_way' && isCurrent && order?.courierLocation && (
+                                <Button
+                                    mode="outlined"
+                                    compact
+                                    icon="map-marker"
+                                    style={styles.trackButton}
+                                    onPress={() => {
+                                        const { lat, lng } = order.courierLocation;
+                                        Linking.openURL(`https://www.google.com/maps?q=${lat},${lng}`);
+                                    }}
+                                >
+                                    Ver ubicación
+                                </Button>
+                            )}
                         </View>
                     </View>
                 );
@@ -110,6 +135,7 @@ const styles = StyleSheet.create({
     stepLabel: { fontSize: 14 },
     stepLabelCurrent: { fontWeight: 'bold' },
     stepWhen: { fontSize: 11, marginTop: 1 },
+    trackButton: { marginTop: 6, alignSelf: 'flex-start' },
     cancelledRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
     cancelledText: { fontSize: 14, fontWeight: '600' }
 });

@@ -4,10 +4,11 @@ import { Text, Appbar, Card, Chip, Button, Menu, Portal, Dialog, ActivityIndicat
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 import ApiService from '../services/ApiService';
+import LocationService from '../services/LocationService';
 
 const formatCOP = (value) => `$${Number(value || 0).toLocaleString('es-CO')}`;
 
-const STATUS_FLOW = ['waitlist', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+const STATUS_FLOW = ['waitlist', 'confirmed', 'preparing', 'ready', 'on_the_way', 'delivered', 'cancelled'];
 
 const ShopAdminScreen = ({ navigation }) => {
     const theme = useTheme();
@@ -41,8 +42,40 @@ const ShopAdminScreen = ({ navigation }) => {
 
     const setStatus = async (order, status) => {
         setMenuFor(null);
+
+        // Al marcar "en camino" en un pedido con domicilio, se ofrece
+        // compartir la ubicacion actual. No es tracking en vivo, es una foto
+        // del punto de partida; por eso se pide una sola vez aqui y no se
+        // repite en cada cambio de estado.
+        if (status === 'on_the_way' && order.delivery) {
+            Alert.alert(
+                'Compartir ubicación',
+                '¿Quieres que el comprador vea desde dónde saliste?',
+                [
+                    { text: 'No, gracias', onPress: () => applyStatus(order, status) },
+                    { text: 'Compartir ubicación', onPress: () => applyStatus(order, status, true) }
+                ]
+            );
+            return;
+        }
+
+        applyStatus(order, status);
+    };
+
+    const applyStatus = async (order, status, shareLocation = false) => {
         try {
-            await ApiService.updateOrderStatus(order._id, status);
+            let courierLocation;
+            if (shareLocation) {
+                try {
+                    const pos = await LocationService.getCurrentPosition();
+                    courierLocation = { lat: pos.lat, lng: pos.lng };
+                } catch (locError) {
+                    // No dejar sin actualizar el pedido solo porque el GPS
+                    // fallo: se avisa y se sigue sin ubicacion.
+                    Alert.alert(t('common.error'), locError.message);
+                }
+            }
+            await ApiService.updateOrderStatus(order._id, status, null, courierLocation);
             load();
         } catch (e) {
             Alert.alert(t('common.error'), e.message);
@@ -145,25 +178,69 @@ const ShopAdminScreen = ({ navigation }) => {
                                 </Menu>
                             </View>
 
-                            <View style={styles.row}>
-                                <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}>
-                                    {item.paymentMethod ? t(`shop.method.${item.paymentMethod}`) : t('shop.paymentStatus.unpaid')}
-                                    {item.paymentRef ? ` · ${item.paymentRef}` : ''}
-                                </Text>
-                                {item.paymentStatus === 'paid' ? (
-                                    <Chip icon="check-circle" style={{ backgroundColor: '#4CAF5022' }} textStyle={{ color: '#4CAF50' }}>
-                                        {t('shop.paymentStatus.paid')}
-                                    </Chip>
-                                ) : item.paymentStatus === 'pending' ? (
-                                    <Button mode="contained-tonal" compact onPress={() => confirmPayment(item, true)}>
-                                        {t('shop.markPaid')}
-                                    </Button>
-                                ) : (
-                                    <Chip style={{ backgroundColor: '#9E9E9E22' }} textStyle={{ color: '#9E9E9E' }}>
-                                        {t('shop.paymentStatus.unpaid')}
-                                    </Chip>
-                                )}
-                            </View>
+                            {/* Sin parte en efectivo: exactamente el mismo bloque de
+                                siempre. Con ella, cada parte se confirma por
+                                separado porque son dos cobros distintos. */}
+                            {!item.cashCOP ? (
+                                <View style={styles.row}>
+                                    <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}>
+                                        {item.paymentMethod ? t(`shop.method.${item.paymentMethod}`) : t('shop.paymentStatus.unpaid')}
+                                        {item.paymentRef ? ` · ${item.paymentRef}` : ''}
+                                    </Text>
+                                    {item.paymentStatus === 'paid' ? (
+                                        <Chip icon="check-circle" style={{ backgroundColor: '#4CAF5022' }} textStyle={{ color: '#4CAF50' }}>
+                                            {t('shop.paymentStatus.paid')}
+                                        </Chip>
+                                    ) : item.paymentStatus === 'pending' ? (
+                                        <Button mode="contained-tonal" compact onPress={() => confirmPayment(item, true)}>
+                                            {t('shop.markPaid')}
+                                        </Button>
+                                    ) : (
+                                        <Chip style={{ backgroundColor: '#9E9E9E22' }} textStyle={{ color: '#9E9E9E' }}>
+                                            {t('shop.paymentStatus.unpaid')}
+                                        </Chip>
+                                    )}
+                                </View>
+                            ) : (
+                                <View style={styles.splitPayment}>
+                                    {item.totalCOP - item.cashCOP > 0 && (
+                                        <View style={styles.row}>
+                                            <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}>
+                                                {item.paymentMethod ? t(`shop.method.${item.paymentMethod}`) : ''}
+                                                {' · '}{formatCOP(item.totalCOP - item.cashCOP)}
+                                                {item.paymentRef ? ` · ${item.paymentRef}` : ''}
+                                            </Text>
+                                            {item.electronicStatus === 'paid' ? (
+                                                <Chip compact icon="check-circle" style={{ backgroundColor: '#4CAF5022' }} textStyle={{ color: '#4CAF50' }}>
+                                                    {t('shop.paymentStatus.paid')}
+                                                </Chip>
+                                            ) : (
+                                                <Button mode="contained-tonal" compact onPress={() => confirmPayment(item, true)}>
+                                                    {t('shop.markPaid')}
+                                                </Button>
+                                            )}
+                                        </View>
+                                    )}
+                                    <View style={styles.row}>
+                                        <Text style={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}>
+                                            Efectivo · {formatCOP(item.cashCOP)}
+                                        </Text>
+                                        {item.cashCollected ? (
+                                            <Chip compact icon="check-circle" style={{ backgroundColor: '#4CAF5022' }} textStyle={{ color: '#4CAF50' }}>
+                                                Cobrado
+                                            </Chip>
+                                        ) : (
+                                            <Button
+                                                mode="contained-tonal"
+                                                compact
+                                                onPress={() => ApiService.confirmOrderCash(item._id, true).then(load).catch((e) => Alert.alert(t('common.error'), e.message))}
+                                            >
+                                                Marcar cobrado
+                                            </Button>
+                                        )}
+                                    </View>
+                                </View>
+                            )}
 
                             {/* Ver la captura de la transferencia antes de dar
                                 el pago por bueno, en vez de buscarla a ciegas
@@ -218,6 +295,7 @@ const styles = StyleSheet.create({
     meta: { fontSize: 12, marginTop: 4 },
     notes: { fontSize: 13, fontStyle: 'italic', marginTop: 6 },
     row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+    splitPayment: { gap: 4 },
     total: { fontSize: 16, fontWeight: 'bold' },
     emptyText: { fontSize: 16, marginTop: 12 }
 });

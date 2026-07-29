@@ -12,6 +12,7 @@ const { checkCapacity } = require('../services/capacityService');
 const { priceLine } = require('../services/pricingService');
 const { quote: quoteDelivery } = require('../services/deliveryService');
 const { validateReceipt } = require('../services/receiptValidator');
+const { aggregatePaymentStatus } = require('../services/paymentSplitService');
 const ShopSettings = require('../models/ShopSettings');
 const { notifyNewOrder, notifyStatusChange } = require('../services/notificationService');
 
@@ -24,7 +25,10 @@ const stripReceipt = (order) => {
     return { ...rest, hasReceipt: Boolean(receipt?.image) };
 };
 
-const VALID_STATUSES = ['waitlist', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
+// "on_the_way" existe para el seguimiento del domicilio: separado de "ready"
+// (preparado, todavia en la tienda) porque el comprador quiere saber
+// especificamente cuando ya salio, no solo que ya esta listo.
+const VALID_STATUSES = ['waitlist', 'confirmed', 'preparing', 'ready', 'on_the_way', 'delivered', 'cancelled'];
 const VALID_METHODS = ['nequi', 'crypto', 'breb'];
 
 // @route   POST /api/orders
@@ -457,7 +461,9 @@ router.get('/', [auth, shopAdmin], async (req, res) => {
 router.patch('/:id/status', [
     auth,
     shopAdmin,
-    body('status').isIn(VALID_STATUSES).withMessage(`status must be one of ${VALID_STATUSES.join(', ')}`)
+    body('status').isIn(VALID_STATUSES).withMessage(`status must be one of ${VALID_STATUSES.join(', ')}`),
+    body('courierLocation.lat').optional().isFloat({ min: -90, max: 90 }),
+    body('courierLocation.lng').optional().isFloat({ min: -180, max: 180 })
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -476,6 +482,19 @@ router.patch('/:id/status', [
         };
         if (req.body.status === 'confirmed' && req.body.confirmedDeliveryTime) {
             update.confirmedDeliveryTime = new Date(req.body.confirmedDeliveryTime);
+        }
+
+        // Ubicacion del domiciliario en el instante en que sale de la tienda:
+        // no es tracking en vivo (eso exigiria mandar la posicion cada pocos
+        // segundos desde el celular del vendedor, con permiso de ubicacion en
+        // segundo plano), sino una foto de "aqui estoy ahora" que el
+        // comprador puede abrir en el mapa.
+        if (req.body.status === 'on_the_way' && req.body.courierLocation) {
+            update.courierLocation = {
+                lat: Number(req.body.courierLocation.lat),
+                lng: Number(req.body.courierLocation.lng),
+                updatedAt: new Date()
+            };
         }
 
         // findByIdAndUpdate mete los campos planos en $set y respeta $push.
@@ -504,16 +523,21 @@ router.patch('/:id/status', [
 });
 
 // @route   POST /api/orders/:id/pay
-// @desc    Report a payment for the order.
+// @desc    Report how the order gets paid. Puede ser 100% electronico (como
+//          antes) o dividido: una parte en efectivo (se cobra al entregar) y
+//          el resto por Nequi/Bre-B/cripto.
 //          - crypto: verified for real on-chain right here (txHash required).
 //          - nequi / breb: no gateway API wired up yet, so this just records
 //            the buyer's reference and flips paymentStatus to "pending" —
 //            the seller confirms manually (PATCH .../confirm-payment) after
 //            checking the transfer landed in their Nequi/Bre-B account.
+//          - cashCOP: cuanto de esos dos se paga en efectivo. El vendedor lo
+//            marca cobrado con PATCH .../confirm-cash al entregar.
 // @access  Private (order owner only)
 router.post('/:id/pay', [
     auth,
-    body('method').isIn(VALID_METHODS).withMessage(`method must be one of ${VALID_METHODS.join(', ')}`)
+    body('cashCOP').optional().isInt({ min: 0 }).withMessage('cashCOP must be a non-negative integer'),
+    body('method').optional().isIn(VALID_METHODS).withMessage(`method must be one of ${VALID_METHODS.join(', ')}`)
 ], async (req, res) => {
     try {
         const errors = validationResult(req);
@@ -529,6 +553,12 @@ router.post('/:id/pay', [
             return res.status(403).json({ error: 'Not your order' });
         }
 
+        const cashCOP = req.body.cashCOP !== undefined ? Number(req.body.cashCOP) : 0;
+        if (cashCOP > order.totalCOP) {
+            return res.status(400).json({ error: 'cashCOP no puede ser mayor que el total del pedido' });
+        }
+        const electronicCOP = order.totalCOP - cashCOP;
+
         const { method, txHash, reference, receipt } = req.body;
 
         // Comprobante opcional (captura de la transferencia). Se valida de
@@ -540,6 +570,28 @@ router.post('/:id/pay', [
                 return res.status(check.status || 400).json({ error: check.error });
             }
             receiptData = { image: receipt, mime: check.mime, uploadedAt: new Date() };
+        }
+
+        // Sin parte electronica (todo en efectivo): no hace falta metodo ni
+        // nada que verificar, solo queda pendiente de cobrar al entregar.
+        if (electronicCOP === 0) {
+            const paymentStatus = aggregatePaymentStatus({
+                cashCOP, cashCollected: false, electronicStatus: 'unpaid', electronicCOP: 0
+            });
+            const updated = await Order.findByIdAndUpdate(req.params.id, {
+                cashCOP,
+                cashCollected: false,
+                electronicStatus: 'unpaid',
+                paymentStatus,
+                paymentMethod: null,
+                paymentRef: ''
+            });
+            return res.json({ message: 'Pago en efectivo registrado, se cobra al entregar', order: stripReceipt(updated) });
+        }
+
+        // Con parte electronica hace falta metodo, igual que antes.
+        if (!method) {
+            return res.status(400).json({ error: 'method es requerido para la parte que no es en efectivo' });
         }
 
         if (method === 'crypto') {
@@ -556,18 +608,30 @@ router.post('/:id/pay', [
             if (!confirmed) {
                 return res.status(400).json({ error: 'Transaction not found or not successful on-chain' });
             }
+            const paymentStatus = aggregatePaymentStatus({
+                cashCOP, cashCollected: false, electronicStatus: 'paid', electronicCOP
+            });
             const updated = await Order.findByIdAndUpdate(req.params.id, {
-                paymentStatus: 'paid',
+                cashCOP,
+                cashCollected: false,
+                electronicStatus: 'paid',
+                paymentStatus,
                 paymentMethod: 'crypto',
                 paymentRef: txHash
             });
-            return res.json({ message: 'Payment verified on-chain', order: updated });
+            return res.json({ message: 'Payment verified on-chain', order: stripReceipt(updated) });
         }
 
         // nequi / breb: no gateway integration yet — mark pending for the
         // seller to confirm by hand.
+        const paymentStatus = aggregatePaymentStatus({
+            cashCOP, cashCollected: false, electronicStatus: 'pending', electronicCOP
+        });
         const updated = await Order.findByIdAndUpdate(req.params.id, {
-            paymentStatus: 'pending',
+            cashCOP,
+            cashCollected: false,
+            electronicStatus: 'pending',
+            paymentStatus,
             paymentMethod: method,
             paymentRef: reference || '',
             ...(receiptData ? { receipt: receiptData } : {})
@@ -586,7 +650,10 @@ router.post('/:id/pay', [
 });
 
 // @route   PATCH /api/orders/:id/confirm-payment
-// @desc    Seller manually confirms (or rejects) a pending Nequi/Bre-B payment
+// @desc    Seller manually confirms (or rejects) a pending Nequi/Bre-B payment.
+//          Si el pedido tiene ademas una parte en efectivo, esto solo mueve
+//          la parte electronica: el total sigue pendiente hasta que la parte
+//          en efectivo tambien se marque cobrada.
 // @access  Private (shop admin only)
 router.patch('/:id/confirm-payment', [
     auth,
@@ -604,12 +671,66 @@ router.patch('/:id/confirm-payment', [
             return res.status(404).json({ error: 'Order not found' });
         }
 
-        const updated = await Order.findByIdAndUpdate(req.params.id, {
-            paymentStatus: req.body.paid ? 'paid' : 'unpaid'
+        const cashCOP = order.cashCOP || 0;
+        const electronicCOP = order.totalCOP - cashCOP;
+        const electronicStatus = req.body.paid ? 'paid' : 'unpaid';
+        const paymentStatus = aggregatePaymentStatus({
+            cashCOP,
+            cashCollected: Boolean(order.cashCollected),
+            electronicStatus,
+            electronicCOP
         });
-        res.json({ message: 'Payment confirmation updated', order: updated });
+
+        const updated = await Order.findByIdAndUpdate(req.params.id, { electronicStatus, paymentStatus });
+        res.json({ message: 'Payment confirmation updated', order: stripReceipt(updated) });
     } catch (error) {
         console.error('Confirm payment error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   PATCH /api/orders/:id/confirm-cash
+// @desc    El vendedor marca cobrada (o no) la parte en efectivo, tipicamente
+//          al entregar el pedido.
+// @access  Private (shop admin only)
+router.patch('/:id/confirm-cash', [
+    auth,
+    shopAdmin,
+    body('collected').isBoolean().withMessage('collected must be true or false')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found' });
+        }
+        if (!order.cashCOP) {
+            return res.status(409).json({ error: 'Ese pedido no tiene una parte en efectivo' });
+        }
+
+        const electronicCOP = order.totalCOP - order.cashCOP;
+        // El estado de la parte electronica se lee tal cual quedo guardado, no
+        // se adivina: si el admin ya la habia confirmado por separado, cobrar
+        // el efectivo despues no debe hacerla retroceder.
+        const electronicStatus = order.electronicStatus || 'unpaid';
+        const paymentStatus = aggregatePaymentStatus({
+            cashCOP: order.cashCOP,
+            cashCollected: req.body.collected,
+            electronicStatus,
+            electronicCOP
+        });
+
+        const updated = await Order.findByIdAndUpdate(req.params.id, {
+            cashCollected: req.body.collected,
+            paymentStatus
+        });
+        res.json({ message: 'Efectivo actualizado', order: stripReceipt(updated) });
+    } catch (error) {
+        console.error('Confirm cash error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
