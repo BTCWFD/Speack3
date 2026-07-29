@@ -37,8 +37,27 @@ router.post('/', [
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { name, emoji, priceCOP, description } = req.body;
-        const product = await Product.create({ name, emoji, priceCOP, description });
+        const { name, emoji, priceCOP, description, bundleQty, bundlePriceCOP } = req.body;
+
+        // La promo es opcional, pero si viene una mitad tiene que venir la otra:
+        // un bundleQty sin precio (o al reves) se ignoraria en silencio y el
+        // vendedor creeria que dejo una promo puesta.
+        const promoFields = [bundleQty, bundlePriceCOP].filter((v) => v !== undefined);
+        if (promoFields.length === 1) {
+            return res.status(400).json({ error: 'bundleQty y bundlePriceCOP van juntos' });
+        }
+        if (promoFields.length === 2) {
+            if (!Number.isInteger(bundleQty) || bundleQty < 2) {
+                return res.status(400).json({ error: 'bundleQty debe ser un entero >= 2' });
+            }
+            if (!Number.isInteger(bundlePriceCOP) || bundlePriceCOP < 0) {
+                return res.status(400).json({ error: 'bundlePriceCOP debe ser un entero >= 0' });
+            }
+        }
+
+        const product = await Product.create({
+            name, emoji, priceCOP, description, bundleQty, bundlePriceCOP
+        });
 
         res.status(201).json({ message: 'Product created', product });
     } catch (error) {
@@ -57,13 +76,16 @@ router.put('/:id', [auth, shopAdmin], async (req, res) => {
             return res.status(404).json({ error: 'Product not found' });
         }
 
-        const { name, emoji, priceCOP, description, active } = req.body;
+        const { name, emoji, priceCOP, description, active, bundleQty, bundlePriceCOP } = req.body;
         const update = {};
         if (name !== undefined) update.name = name;
         if (emoji !== undefined) update.emoji = emoji;
         if (priceCOP !== undefined) update.priceCOP = priceCOP;
         if (description !== undefined) update.description = description;
         if (active !== undefined) update.active = active;
+        // null en cualquiera de los dos quita la promo.
+        if (bundleQty !== undefined) update.bundleQty = bundleQty;
+        if (bundlePriceCOP !== undefined) update.bundlePriceCOP = bundlePriceCOP;
 
         const updated = await Product.findByIdAndUpdate(req.params.id, update);
         res.json({ message: 'Product updated', product: updated });

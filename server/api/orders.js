@@ -7,6 +7,8 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const User = require('../models/User');
 const web3PaymentService = require('../services/web3PaymentService');
+const { checkCapacity } = require('../services/capacityService');
+const { priceLine } = require('../services/pricingService');
 
 const VALID_STATUSES = ['waitlist', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 const VALID_METHODS = ['nequi', 'crypto', 'breb'];
@@ -33,28 +35,42 @@ router.post('/', [
             return res.status(400).json({ error: 'requestedDeliveryTime must be in the future' });
         }
 
+        // El cupo se valida antes de armar el pedido: si la franja esta llena
+        // o cerrada no tiene sentido seguir calculando precios.
+        const capacity = await checkCapacity(requestedDeliveryTime);
+        if (!capacity.ok) {
+            return res.status(409).json({ error: capacity.error, reason: capacity.reason });
+        }
+
         // Prices always come from the catalog, never trusted from the client.
         const items = [];
         let totalCOP = 0;
+        let totalSavedCOP = 0;
         for (const { productId, qty } of req.body.items) {
             const product = await Product.findById(productId);
             if (!product || !product.active) {
                 return res.status(400).json({ error: `Product ${productId} not available` });
             }
+            const { subtotalCOP, bundlesApplied, savedCOP } = priceLine(product, qty);
             items.push({
                 productId: product._id,
                 name: product.name,
                 emoji: product.emoji,
                 unitPriceCOP: product.priceCOP,
-                qty
+                qty,
+                subtotalCOP,
+                bundlesApplied,
+                savedCOP
             });
-            totalCOP += product.priceCOP * qty;
+            totalCOP += subtotalCOP;
+            totalSavedCOP += savedCOP;
         }
 
         const order = await Order.create({
             buyerId: req.userId,
             items,
             totalCOP,
+            totalSavedCOP,
             requestedDeliveryTime,
             notes: req.body.notes || ''
         });

@@ -8,11 +8,12 @@ require('dotenv').config();
 const db = require('../config/database');
 const Product = require('../models/Product');
 
+// bundleQty/bundlePriceCOP = promo por cantidad ("2 fresas por 100.000").
 const CATALOG = [
-    { name: 'Fresa', emoji: '🍓', priceCOP: 60000 },
-    { name: 'Coco', emoji: '🥥', priceCOP: 40000 },
-    { name: 'Pila', emoji: '🔋', priceCOP: 40000 },
-    { name: 'Cuadro', emoji: '⬜', priceCOP: 50000 }
+    { name: 'Fresa', emoji: '🍓', priceCOP: 60000, bundleQty: 2, bundlePriceCOP: 100000 },
+    { name: 'Coco', emoji: '🥥', priceCOP: 40000, bundleQty: 2, bundlePriceCOP: 70000 },
+    { name: 'Pila', emoji: '🔋', priceCOP: 40000, bundleQty: 2, bundlePriceCOP: 70000 },
+    { name: 'Cuadro', emoji: '⬜', priceCOP: 50000, bundleQty: 2, bundlePriceCOP: 90000 }
 ];
 
 (async () => {

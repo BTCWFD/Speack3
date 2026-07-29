@@ -15,6 +15,7 @@ const groupRoutes = require('./api/groups');
 const messageRoutes = require('./api/messages');
 const productRoutes = require('./api/products');
 const orderRoutes = require('./api/orders');
+const slotRoutes = require('./api/slots');
 
 // Import socket handlers
 const setupSocketHandlers = require('./sockets/messageHandler');
@@ -133,6 +134,7 @@ app.use('/api/groups', groupRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/slots', slotRoutes);
 
 // 404 handler
 app.use((req, res) => {
