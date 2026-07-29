@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const auth = require('../middleware/auth');
 const shopAdmin = require('../middleware/shopAdmin');
+const { isShopAdmin } = require('../middleware/shopAdmin');
 const Product = require('../models/Product');
 const Order = require('../models/Order');
 const User = require('../models/User');
@@ -10,8 +11,18 @@ const web3PaymentService = require('../services/web3PaymentService');
 const { checkCapacity } = require('../services/capacityService');
 const { priceLine } = require('../services/pricingService');
 const { quote: quoteDelivery } = require('../services/deliveryService');
+const { validateReceipt } = require('../services/receiptValidator');
 const ShopSettings = require('../models/ShopSettings');
 const { notifyNewOrder, notifyStatusChange } = require('../services/notificationService');
+
+// Un comprobante es una imagen en base64 de ~1-3 MB. Devolverla dentro de cada
+// pedido haria que listar 20 pedidos moviera decenas de megas y reventara la
+// app en datos moviles. Se reemplaza por una bandera y se sirve aparte.
+const stripReceipt = (order) => {
+    if (!order) return order;
+    const { receipt, ...rest } = order;
+    return { ...rest, hasReceipt: Boolean(receipt?.image) };
+};
 
 const VALID_STATUSES = ['waitlist', 'confirmed', 'preparing', 'ready', 'delivered', 'cancelled'];
 const VALID_METHODS = ['nequi', 'crypto', 'breb'];
@@ -165,13 +176,47 @@ router.post('/', [
     }
 });
 
+// @route   GET /api/orders/:id/receipt
+// @desc    El comprobante de pago de un pedido. Solo lo ven el comprador que
+//          lo subio y el vendedor que tiene que verificarlo: es una captura
+//          bancaria con nombres y numeros de cuenta.
+// @access  Private (dueno del pedido o shop admin)
+router.get('/:id/receipt', auth, async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
+        const esDueno = order.buyerId === req.userId;
+        if (!esDueno && !isShopAdmin(req.user)) {
+            return res.status(403).json({ error: 'No puedes ver este comprobante' });
+        }
+
+        if (!order.receipt?.image) {
+            return res.status(404).json({ error: 'Ese pedido no tiene comprobante' });
+        }
+
+        res.json({
+            receipt: {
+                image: order.receipt.image,
+                mime: order.receipt.mime,
+                uploadedAt: order.receipt.uploadedAt
+            }
+        });
+    } catch (error) {
+        console.error('Get receipt error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // @route   GET /api/orders/mine
 // @desc    The logged-in buyer's own orders
 // @access  Private
 router.get('/mine', auth, async (req, res) => {
     try {
         const orders = await Order.find({ buyerId: req.userId }, { sort: { createdAt: -1 } });
-        res.json({ orders });
+        res.json({ orders: orders.map(stripReceipt) });
     } catch (error) {
         console.error('List my orders error:', error);
         res.status(500).json({ error: 'Server error' });
@@ -397,7 +442,7 @@ router.get('/', [auth, shopAdmin], async (req, res) => {
         );
 
         res.json({
-            orders: orders.map((o) => ({ ...o, buyer: buyerById[o.buyerId] || null }))
+            orders: orders.map((o) => ({ ...stripReceipt(o), buyer: buyerById[o.buyerId] || null }))
         });
     } catch (error) {
         console.error('List orders error:', error);
@@ -484,7 +529,18 @@ router.post('/:id/pay', [
             return res.status(403).json({ error: 'Not your order' });
         }
 
-        const { method, txHash, reference } = req.body;
+        const { method, txHash, reference, receipt } = req.body;
+
+        // Comprobante opcional (captura de la transferencia). Se valida de
+        // verdad porque despues se le sirve a otra persona.
+        let receiptData;
+        if (receipt !== undefined && receipt !== null) {
+            const check = validateReceipt(receipt);
+            if (!check.ok) {
+                return res.status(check.status || 400).json({ error: check.error });
+            }
+            receiptData = { image: receipt, mime: check.mime, uploadedAt: new Date() };
+        }
 
         if (method === 'crypto') {
             if (!txHash) {
@@ -513,11 +569,15 @@ router.post('/:id/pay', [
         const updated = await Order.findByIdAndUpdate(req.params.id, {
             paymentStatus: 'pending',
             paymentMethod: method,
-            paymentRef: reference || ''
+            paymentRef: reference || '',
+            ...(receiptData ? { receipt: receiptData } : {})
         });
         res.json({
             message: 'Payment reported, awaiting seller confirmation',
-            order: updated
+            // La imagen no viaja aqui: engordaria esta respuesta y todas las
+            // listas de pedidos. Se pide aparte con GET .../receipt.
+            order: stripReceipt(updated),
+            hasReceipt: Boolean(receiptData)
         });
     } catch (error) {
         console.error('Report payment error:', error);

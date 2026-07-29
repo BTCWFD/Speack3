@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Alert } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, RefreshControl, ScrollView, Alert, Image } from 'react-native';
+import { launchImageLibrary } from 'react-native-image-picker';
 import {
     Text,
     Appbar,
@@ -69,6 +70,7 @@ const ShopScreen = ({ navigation }) => {
     const [payMethod, setPayMethod] = useState(null);
     const [payRef, setPayRef] = useState('');
     const [paying, setPaying] = useState(false);
+    const [receipt, setReceipt] = useState(null);
 
     const [repeatSource, setRepeatSource] = useState(null);
     const [destination, setDestination] = useState(null);
@@ -152,6 +154,31 @@ const ShopScreen = ({ navigation }) => {
         setPayOrder(order);
         setPayMethod(null);
         setPayRef('');
+        setReceipt(null);
+    };
+
+    // Captura de la transferencia. Se comprime bastante: el servidor rechaza
+    // por encima de ~3 MB y una foto de camara moderna los pasa facil.
+    const pickReceipt = async () => {
+        try {
+            const result = await launchImageLibrary({
+                mediaType: 'photo',
+                includeBase64: true,
+                maxWidth: 1400,
+                maxHeight: 1400,
+                quality: 0.7
+            });
+            if (result.didCancel || !result.assets?.length) return;
+
+            const asset = result.assets[0];
+            if (!asset.base64) {
+                Alert.alert(t('common.error'), 'No se pudo leer la imagen.');
+                return;
+            }
+            setReceipt(`data:${asset.type || 'image/jpeg'};base64,${asset.base64}`);
+        } catch (error) {
+            Alert.alert(t('common.error'), error.message);
+        }
     };
 
     // Repetir reutiliza el selector de dia/hora del checkout: hay que elegir
@@ -249,7 +276,9 @@ const ShopScreen = ({ navigation }) => {
         }
         setPaying(true);
         try {
-            const extra = payMethod === 'crypto' ? { txHash: payRef.trim() } : { reference: payRef.trim() };
+            const extra = payMethod === 'crypto'
+                ? { txHash: payRef.trim() }
+                : { reference: payRef.trim(), ...(receipt ? { receipt } : {}) };
             await ApiService.payOrder(payOrder._id, payMethod, extra);
             setPayOrder(null);
             loadOrders();
@@ -577,6 +606,36 @@ const ShopScreen = ({ navigation }) => {
                                 style={styles.notesInput}
                             />
                         )}
+                        {/* El comprobante acelera la verificacion: el vendedor
+                            ve la transferencia en vez de buscarla a ciegas.
+                            Sigue siendo opcional. */}
+                        {payMethod && payMethod !== 'crypto' && (
+                            <View style={styles.receiptSection}>
+                                <Button
+                                    mode="outlined"
+                                    icon={receipt ? 'image-check' : 'camera-outline'}
+                                    onPress={pickReceipt}
+                                    compact
+                                >
+                                    {receipt ? 'Cambiar comprobante' : 'Adjuntar comprobante'}
+                                </Button>
+
+                                {receipt ? (
+                                    <View style={styles.receiptPreviewRow}>
+                                        <Image source={{ uri: receipt }} style={styles.receiptThumb} />
+                                        <Button
+                                            mode="text"
+                                            compact
+                                            textColor={theme.colors.error}
+                                            onPress={() => setReceipt(null)}
+                                        >
+                                            Quitar
+                                        </Button>
+                                    </View>
+                                ) : null}
+                            </View>
+                        )}
+
                         {payMethod && payMethod !== 'crypto' && (
                             <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
                                 {t('shop.manualConfirmHint')}
@@ -625,6 +684,9 @@ const styles = StyleSheet.create({
     orderItems: { flex: 1, fontSize: 14, marginRight: 8 },
     orderMeta: { fontSize: 12, marginTop: 6 },
     savedText: { fontSize: 12, marginTop: 4, fontWeight: '600' },
+    receiptSection: { marginTop: 14 },
+    receiptPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
+    receiptThumb: { width: 64, height: 64, borderRadius: 6, resizeMode: 'cover' },
     orderActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
     orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, gap: 8 },
     orderTotal: { fontSize: 16, fontWeight: 'bold', flexShrink: 0 },

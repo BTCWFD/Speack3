@@ -537,6 +537,17 @@ class ApiService {
         }
     }
 
+    // Comprobante de pago. Se pide aparte porque la imagen no viaja dentro de
+    // los pedidos: engordaria cada listado.
+    async getOrderReceipt(orderId) {
+        try {
+            const response = await this.client.get(`/api/orders/${orderId}/receipt`);
+            return response.data.receipt;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     // Aportes voluntarios
     async getDonationInfo() {
         try {

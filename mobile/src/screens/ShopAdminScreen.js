@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, RefreshControl, Alert } from 'react-native';
-import { Text, Appbar, Card, Chip, Button, Menu, useTheme } from 'react-native-paper';
+import { View, FlatList, StyleSheet, RefreshControl, Alert, Image } from 'react-native';
+import { Text, Appbar, Card, Chip, Button, Menu, Portal, Dialog, ActivityIndicator, useTheme } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 import ApiService from '../services/ApiService';
@@ -16,6 +16,8 @@ const ShopAdminScreen = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
     const [forbidden, setForbidden] = useState(false);
     const [menuFor, setMenuFor] = useState(null);
+    const [receiptImage, setReceiptImage] = useState(null);
+    const [loadingReceipt, setLoadingReceipt] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -53,6 +55,21 @@ const ShopAdminScreen = ({ navigation }) => {
             load();
         } catch (e) {
             Alert.alert(t('common.error'), e.message);
+        }
+    };
+
+    // La imagen se pide solo al abrirla y no se guarda en el estado de la
+    // lista: son datos bancarios y no tienen por que quedar cargados en
+    // memoria mientras se navega.
+    const showReceipt = async (order) => {
+        setLoadingReceipt(true);
+        try {
+            const data = await ApiService.getOrderReceipt(order._id);
+            setReceiptImage(data.image);
+        } catch (e) {
+            Alert.alert(t('common.error'), e.message);
+        } finally {
+            setLoadingReceipt(false);
         }
     };
 
@@ -147,16 +164,52 @@ const ShopAdminScreen = ({ navigation }) => {
                                     </Chip>
                                 )}
                             </View>
+
+                            {/* Ver la captura de la transferencia antes de dar
+                                el pago por bueno, en vez de buscarla a ciegas
+                                en el historial del banco. */}
+                            {item.hasReceipt && (
+                                <Button
+                                    mode="text"
+                                    compact
+                                    icon="receipt"
+                                    onPress={() => showReceipt(item)}
+                                >
+                                    Ver comprobante
+                                </Button>
+                            )}
                         </Card.Content>
                     </Card>
                 )}
             />
+
+            <Portal>
+                <Dialog visible={!!receiptImage} onDismiss={() => setReceiptImage(null)}>
+                    <Dialog.Title>Comprobante</Dialog.Title>
+                    <Dialog.Content>
+                        {receiptImage ? (
+                            <Image
+                                source={{ uri: receiptImage }}
+                                style={styles.receiptFull}
+                                resizeMode="contain"
+                            />
+                        ) : null}
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => setReceiptImage(null)}>Cerrar</Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
+
+            {loadingReceipt && <ActivityIndicator style={styles.receiptLoader} />}
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
+    receiptFull: { width: '100%', height: 420, borderRadius: 8 },
+    receiptLoader: { position: 'absolute', top: '50%', left: 0, right: 0 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
     list: { padding: 8, flexGrow: 1 },
     card: { marginHorizontal: 8, marginVertical: 6 },
