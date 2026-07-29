@@ -116,6 +116,14 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Mobile app update check. version.json is bumped by hand alongside each
+// APK release (mobile/android/app/build.gradle's versionCode) and read fresh
+// on every request so a redeploy isn't needed to announce a new build.
+app.get('/api/version', (req, res) => {
+    delete require.cache[require.resolve('./version.json')];
+    res.json(require('./version.json'));
+});
+
 // API Routes
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/users', userRoutes);

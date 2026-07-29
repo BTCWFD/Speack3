@@ -1,0 +1,6 @@
+{
+    "versionCode": 2,
+    "versionName": "1.1",
+    "apkUrl": "https://github.com/BTCWFD/Speack3/releases/download/apk-latest/app-release.apk",
+    "notes": "Backend movido a un servidor permanente + chequeo de actualizaciones."
+}

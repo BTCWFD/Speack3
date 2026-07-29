@@ -35,3 +35,9 @@ ios/build/
 # Keystore
 *.jks
 *.keystore
+# debug.keystore is intentionally committed (not secret: well-known default
+# alias/password "androiddebugkey"/"android"). It must stay identical across
+# every build — local or CI — so release APKs share one signature and can be
+# installed as in-place updates over each other instead of failing with a
+# signature mismatch.
+!android/app/debug.keystore

@@ -173,5 +173,11 @@
     "typeMessage": "Escribe un mensaje...",
     "editMessage": "Editar mensaje...",
     "editingMessage": "Editando mensaje"
+  },
+  "update": {
+    "title": "Actualización disponible",
+    "message": "Hay una nueva versión ({{version}}) de Speack3.",
+    "later": "Luego",
+    "now": "Actualizar"
   }
 }

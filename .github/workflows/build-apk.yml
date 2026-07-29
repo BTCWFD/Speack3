@@ -33,25 +33,33 @@ jobs:
         run: |
           yes | sdkmanager "ndk;25.1.8937393" "cmake;3.22.1" >/dev/null 2>&1 || true
 
-      - name: Generate debug keystore
+      # debug.keystore is committed (mobile/android/app/debug.keystore) so every
+      # build — local or CI — shares one signature and installs as an in-place
+      # update over the previous one. Only regenerate it if it's ever missing
+      # (e.g. a fork that dropped it), which would break auto-update for that
+      # build but shouldn't fail CI outright.
+      - name: Ensure debug keystore exists
         working-directory: mobile/android/app
         run: |
-          keytool -genkeypair -v -storetype PKCS12 -keystore debug.keystore \
-            -storepass android -keypass android -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          if [ ! -f debug.keystore ]; then
+            echo "::warning::debug.keystore missing, generating a throwaway one — APKs signed this run won't match previous releases for in-place updates."
+            keytool -genkeypair -v -storetype PKCS12 -keystore debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
-      - name: Build debug APK
+      - name: Build release APK
         working-directory: mobile/android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew app:assembleRelease -x lint -x test --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: speack3-debug-apk
-          path: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          name: speack3-release-apk
+          path: mobile/android/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
 
       - name: Publish APK to release
@@ -59,9 +67,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-latest
-          name: Speack3 APK (latest debug build)
+          name: Speack3 APK (latest release build)
           body: |
-            Debug APK built automatically by CI from the latest branch.
-            Install on Android (enable "Install unknown apps"). For development use only.
-          files: mobile/android/app/build/outputs/apk/debug/app-debug.apk
+            APK built automatically by CI from the latest branch (release build
+            type, signed with the shared debug.keystore — not a Play Store
+            release). Install on Android (enable "Install unknown apps").
+          files: mobile/android/app/build/outputs/apk/release/app-release.apk
           fail_on_unmatched_files: true
