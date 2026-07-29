@@ -16,6 +16,19 @@ export const AuthProvider = ({ children }) => {
         checkAuth();
     }, []);
 
+    // ApiService clears storage when a 401 can't be recovered by refreshing;
+    // mirror that here so the UI actually returns to the login screen.
+    useEffect(() => {
+        ApiService.onAuthFailure = () => {
+            SocketService.disconnect();
+            setUser(null);
+            setIsAuthenticated(false);
+        };
+        return () => {
+            ApiService.onAuthFailure = null;
+        };
+    }, []);
+
     const checkAuth = async () => {
         try {
             const token = await StorageService.getAuthToken();

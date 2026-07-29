@@ -35,8 +35,13 @@ class ApiService {
                         // Retry original request
                         return this.client(error.config);
                     }
-                    // Logout user
+                    // Refresh failed: the session is gone for good. Clearing
+                    // storage alone would leave AuthContext still holding
+                    // isAuthenticated=true, so the app would keep rendering the
+                    // logged-in screens with stale data while every request 401s.
+                    // Notify the context so it can reset and show the login screen.
                     await StorageService.clearAuth();
+                    this.onAuthFailure?.();
                 }
                 return Promise.reject(error);
             }
