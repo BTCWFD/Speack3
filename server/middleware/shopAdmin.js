@@ -45,6 +45,28 @@ const shopAdmin = (req, res, next) => {
     next();
 };
 
+// Devuelve el usuario admin. Resuelve tanto por id como por el respaldo por
+// correo, para que quien consulte "a quien se le paga" o "a quien se avisa" no
+// tenga que repetir esa logica y romperse cuando el despliegue usa el respaldo.
+const resolveAdminUser = async () => {
+    // Se importa aqui dentro para no crear un ciclo: User -> config/database
+    // se carga al arrancar, y este middleware lo cargan las rutas.
+    const User = require('../models/User');
+
+    const adminId = process.env.SHOP_ADMIN_USER_ID;
+    if (adminId) {
+        return await User.findById(adminId);
+    }
+
+    const adminEmail = process.env.SHOP_ADMIN_EMAIL;
+    if (adminEmail) {
+        return await User.findOne({ email: adminEmail.toLowerCase() });
+    }
+
+    return null;
+};
+
 module.exports = shopAdmin;
 module.exports.isShopAdmin = isShopAdmin;
 module.exports.isShopAdminConfigured = isShopAdminConfigured;
+module.exports.resolveAdminUser = resolveAdminUser;

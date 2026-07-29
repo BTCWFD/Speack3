@@ -19,6 +19,8 @@ const slotRoutes = require('./api/slots');
 const deliveryRoutes = require('./api/delivery');
 const sellerRoutes = require('./api/sellers');
 const legalRoutes = require('./api/legal');
+const notificationRoutes = require('./api/notifications');
+const payoutRoutes = require('./api/payoutMethods');
 
 // Import socket handlers
 const setupSocketHandlers = require('./sockets/messageHandler');
@@ -141,6 +143,8 @@ app.use('/api/slots', slotRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/sellers', sellerRoutes);
 app.use('/api/legal', legalRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/payout-methods', payoutRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -158,6 +162,10 @@ app.use((err, req, res, next) => {
 
 // Setup Socket.io handlers
 setupSocketHandlers(io);
+
+// Dar a las rutas HTTP una forma de emitir por socket (avisos de pedidos)
+// sin crear una dependencia circular con este archivo.
+require('./services/realtime').setIO(io);
 
 // Database connection
 const connectDB = async () => {
