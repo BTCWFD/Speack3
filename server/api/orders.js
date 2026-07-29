@@ -38,6 +38,14 @@ router.post('/', [
             return res.status(400).json({ error: 'requestedDeliveryTime must be in the future' });
         }
 
+        // Si la tienda esta cerrada no se recibe nada, sin importar el resto.
+        if (!(await ShopSettings.isOpen())) {
+            return res.status(409).json({
+                error: 'La tienda esta cerrada en este momento',
+                reason: 'shop_closed'
+            });
+        }
+
         // El cupo se valida antes de armar el pedido: si la franja esta llena
         // o cerrada no tiene sentido seguir calculando precios.
         const capacity = await checkCapacity(requestedDeliveryTime);
@@ -49,11 +57,38 @@ router.post('/', [
         const items = [];
         let totalCOP = 0;
         let totalSavedCOP = 0;
+        // Lo ya descontado, para devolverlo si una linea posterior falla y el
+        // pedido no llega a crearse.
+        const reserved = [];
+
+        const rollbackReserved = async () => {
+            for (const r of reserved) {
+                await Product.restoreStock(r.productId, r.qty);
+            }
+        };
+
         for (const { productId, qty } of req.body.items) {
             const product = await Product.findById(productId);
             if (!product || !product.active) {
+                await rollbackReserved();
                 return res.status(400).json({ error: `Product ${productId} not available` });
             }
+
+            // Reservar el stock ANTES de cobrar: si no alcanza, no hay pedido.
+            if (Product.tracksStock(product)) {
+                const ok = await Product.tryDecrementStock(product._id, qty);
+                if (!ok) {
+                    await rollbackReserved();
+                    return res.status(409).json({
+                        error: `No hay suficiente ${product.name} (quedan ${product.stock})`,
+                        reason: 'out_of_stock',
+                        productId: product._id,
+                        available: product.stock
+                    });
+                }
+                reserved.push({ productId: product._id, qty });
+            }
+
             const { subtotalCOP, bundlesApplied, savedCOP } = priceLine(product, qty);
             items.push({
                 productId: product._id,
@@ -76,6 +111,9 @@ router.post('/', [
         if (req.body.destination) {
             const origin = await ShopSettings.getLocation();
             if (!origin) {
+                // El stock ya estaba reservado: si el pedido no se crea, hay
+                // que devolverlo o quedaria retenido para siempre.
+                await rollbackReserved();
                 return res.status(503).json({
                     error: 'La tienda aun no tiene ubicacion configurada para domicilios',
                     reason: 'no_origin'
@@ -85,6 +123,7 @@ router.post('/', [
             const { lat, lng, address } = req.body.destination;
             const quoted = quoteDelivery(origin, { lat: Number(lat), lng: Number(lng) });
             if (!quoted.ok) {
+                await rollbackReserved();
                 return res.status(422).json({ error: quoted.error, reason: quoted.reason });
             }
 
@@ -135,6 +174,85 @@ router.get('/mine', auth, async (req, res) => {
         res.json({ orders });
     } catch (error) {
         console.error('List my orders error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// Devuelve al catalogo el stock de un pedido que se cancela. Se marca en el
+// propio pedido para no devolverlo dos veces si se cancela dos veces.
+async function releaseStock(order) {
+    if (order.stockReleased) return;
+
+    for (const item of order.items || []) {
+        const product = await Product.findById(item.productId);
+        if (product && Product.tracksStock(product)) {
+            await Product.restoreStock(item.productId, item.qty);
+        }
+    }
+    await Order.findByIdAndUpdate(order._id, { stockReleased: true });
+}
+
+// Estados en los que el COMPRADOR todavia puede echarse para atras solo. Una
+// vez el vendedor empezo a preparar ya invirtio tiempo y producto, asi que a
+// partir de ahi la cancelacion la decide el vendedor.
+const BUYER_CANCELLABLE = ['waitlist', 'confirmed'];
+
+// @route   POST /api/orders/:id/cancel
+// @desc    Cancelar un pedido propio
+// @access  Private (dueno del pedido)
+router.post('/:id/cancel', auth, async (req, res) => {
+    try {
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+        if (order.buyerId !== req.userId) {
+            return res.status(403).json({ error: 'Not your order' });
+        }
+        if (order.status === 'cancelled') {
+            return res.status(409).json({ error: 'Ese pedido ya estaba cancelado' });
+        }
+        if (!BUYER_CANCELLABLE.includes(order.status)) {
+            return res.status(409).json({
+                error: 'Ese pedido ya esta en preparacion. Escribele al vendedor para cancelarlo.',
+                reason: 'too_late'
+            });
+        }
+
+        // Si ya habia pagado, el dinero hay que devolverlo POR FUERA (Nequi,
+        // Bre-B y cripto no se reversan solos). Se marca para que el vendedor
+        // lo vea pendiente en vez de que el pago quede en el limbo.
+        const refundPending = order.paymentStatus === 'paid' || order.paymentStatus === 'pending';
+
+        const updated = await Order.findByIdAndUpdate(req.params.id, {
+            $set: {
+                status: 'cancelled',
+                cancelledBy: 'buyer',
+                cancelReason: (req.body.reason || '').slice(0, 300),
+                ...(refundPending ? { refundPending: true } : {})
+            },
+            $push: { statusHistory: { status: 'cancelled', at: new Date() } }
+        });
+
+        await releaseStock(updated);
+
+        try {
+            await notifyStatusChange(updated, 'cancelled');
+        } catch (notifyError) {
+            console.error('Cancel notification failed:', notifyError);
+        }
+
+        res.json({
+            message: 'Pedido cancelado',
+            order: updated,
+            refundPending,
+            // Se dice explicitamente: el sistema no mueve el dinero.
+            refundNote: refundPending
+                ? 'Ya habias reportado un pago. El vendedor debe devolverte el dinero por el mismo medio; no se reversa solo.'
+                : null
+        });
+    } catch (error) {
+        console.error('Cancel order error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });
@@ -318,6 +436,12 @@ router.patch('/:id/status', [
         // findByIdAndUpdate mete los campos planos en $set y respeta $push.
         const { $push, ...fields } = update;
         const updated = await Order.findByIdAndUpdate(req.params.id, { $set: fields, $push });
+
+        // Si el vendedor cancela, el producto vuelve al catalogo igual que
+        // cuando cancela el comprador.
+        if (req.body.status === 'cancelled') {
+            await releaseStock(updated);
+        }
 
         // Avisar al comprador de que su pedido avanzo, sin dejar que un fallo
         // del aviso revierta un cambio de estado ya guardado.

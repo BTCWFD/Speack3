@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import ApiService from '../services/ApiService';
 import OrderTimeline from '../components/OrderTimeline';
 import NotificationsBell from '../components/NotificationsBell';
+import DeliveryPicker from '../components/DeliveryPicker';
 
 const formatCOP = (value) => `$${Number(value || 0).toLocaleString('es-CO')}`;
 
@@ -70,6 +71,7 @@ const ShopScreen = () => {
     const [paying, setPaying] = useState(false);
 
     const [repeatSource, setRepeatSource] = useState(null);
+    const [destination, setDestination] = useState(null);
 
     const loadCatalog = useCallback(async () => {
         setLoadingCatalog(true);
@@ -116,6 +118,7 @@ const ShopScreen = () => {
         setSelectedDay(null);
         setSelectedSlot(null);
         setNotes('');
+        setDestination(null);
         setCheckoutVisible(true);
     };
 
@@ -131,7 +134,8 @@ const ShopScreen = () => {
             await ApiService.createOrder({
                 items: cartItems.map((i) => ({ productId: i.product._id, qty: i.qty })),
                 requestedDeliveryTime: requestedDeliveryTime.toISOString(),
-                notes
+                notes,
+                ...(destination ? { destination } : {})
             });
             setCart({});
             setCheckoutVisible(false);
@@ -188,6 +192,33 @@ const ShopScreen = () => {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const confirmCancel = (order) => {
+        Alert.alert(
+            'Cancelar pedido',
+            `¿Seguro que quieres cancelar este pedido de ${formatCOP(order.totalCOP)}?`,
+            [
+                { text: 'No', style: 'cancel' },
+                {
+                    text: 'Sí, cancelar',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            const res = await ApiService.cancelOrder(order._id);
+                            await loadOrders();
+                            // Si ya habia pagado, el dinero NO se devuelve solo:
+                            // hay que decirlo, no dejarlo esperando el reembolso.
+                            if (res.refundNote) {
+                                Alert.alert('Pedido cancelado', res.refundNote);
+                            }
+                        } catch (error) {
+                            Alert.alert(t('common.error'), error.message);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     // A donde transferir. Se consulta al abrir y no se guarda: son datos
@@ -328,6 +359,19 @@ const ShopScreen = () => {
                             onPress={() => showPayoutInfo(item)}
                         >
                             ¿A dónde pago?
+                        </Button>
+                    )}
+                    {/* Solo mientras el vendedor no haya empezado a preparar:
+                        despues ya invirtio producto y lo decide el. */}
+                    {['waitlist', 'confirmed'].includes(item.status) && (
+                        <Button
+                            mode="text"
+                            compact
+                            icon="close-circle-outline"
+                            textColor={theme.colors.error}
+                            onPress={() => confirmCancel(item)}
+                        >
+                            Cancelar
                         </Button>
                     )}
                 </View>
@@ -482,6 +526,8 @@ const ShopScreen = () => {
                                     </Chip>
                                 ))}
                             </View>
+                            <DeliveryPicker value={destination} onChange={setDestination} />
+
                             <TextInput
                                 mode="outlined"
                                 label={t('shop.notes')}

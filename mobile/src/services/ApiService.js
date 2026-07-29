@@ -500,6 +500,43 @@ class ApiService {
         }
     }
 
+    // Estado de la tienda / disponibilidad del vendedor
+    async getShopStatus() {
+        try {
+            const response = await this.client.get('/api/shop/status');
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async setShopOpen(open) {
+        try {
+            const response = await this.client.put('/api/shop/open', { open });
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async setMyAvailability(available) {
+        try {
+            const response = await this.client.put('/api/shop/availability', { available });
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async cancelOrder(orderId, reason) {
+        try {
+            const response = await this.client.post(`/api/orders/${orderId}/cancel`, { reason });
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     // Documentos legales
     async getLegalDocuments() {
         try {

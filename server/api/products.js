@@ -55,8 +55,16 @@ router.post('/', [
             }
         }
 
+        // stock es opcional: sin el, el producto se considera ilimitado.
+        if (req.body.stock !== undefined && req.body.stock !== null) {
+            if (!Number.isInteger(req.body.stock) || req.body.stock < 0) {
+                return res.status(400).json({ error: 'stock debe ser un entero >= 0' });
+            }
+        }
+
         const product = await Product.create({
-            name, emoji, priceCOP, description, bundleQty, bundlePriceCOP
+            name, emoji, priceCOP, description, bundleQty, bundlePriceCOP,
+            ...(req.body.stock === undefined ? {} : { stock: req.body.stock })
         });
 
         res.status(201).json({ message: 'Product created', product });
@@ -86,6 +94,16 @@ router.put('/:id', [auth, shopAdmin], async (req, res) => {
         // null en cualquiera de los dos quita la promo.
         if (bundleQty !== undefined) update.bundleQty = bundleQty;
         if (bundlePriceCOP !== undefined) update.bundlePriceCOP = bundlePriceCOP;
+
+        // Fijar stock a un numero lo empieza a controlar; null lo vuelve
+        // ilimitado. Esto PISA el valor, asi que es para reponer inventario,
+        // no para sumar: enviar 10 deja 10, no suma 10 a lo que hubiera.
+        if (req.body.stock !== undefined) {
+            if (req.body.stock !== null && (!Number.isInteger(req.body.stock) || req.body.stock < 0)) {
+                return res.status(400).json({ error: 'stock debe ser un entero >= 0, o null para ilimitado' });
+            }
+            update.stock = req.body.stock;
+        }
 
         const updated = await Product.findByIdAndUpdate(req.params.id, update);
         res.json({ message: 'Product updated', product: updated });

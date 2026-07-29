@@ -11,9 +11,11 @@ async function shopStaffIds() {
     const admin = await resolveAdminUser();
     if (admin) ids.add(admin._id);
 
+    // Solo los vendedores habilitados Y en linea: avisar a quien se puso
+    // fuera de linea es justo lo que ese boton pretende evitar.
     const sellers = await User.find({ role: 'seller' });
     for (const s of sellers) {
-        if (s.sellerActive !== false) ids.add(s._id);
+        if (s.sellerActive !== false && s.sellerAvailable !== false) ids.add(s._id);
     }
 
     return [...ids];

@@ -21,6 +21,8 @@ const sellerRoutes = require('./api/sellers');
 const legalRoutes = require('./api/legal');
 const notificationRoutes = require('./api/notifications');
 const payoutRoutes = require('./api/payoutMethods');
+const shopRoutes = require('./api/shop');
+const donationRoutes = require('./api/donations');
 
 // Import socket handlers
 const setupSocketHandlers = require('./sockets/messageHandler');
@@ -145,6 +147,8 @@ app.use('/api/sellers', sellerRoutes);
 app.use('/api/legal', legalRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/payout-methods', payoutRoutes);
+app.use('/api/shop', shopRoutes);
+app.use('/api/donations', donationRoutes);
 
 // 404 handler
 app.use((req, res) => {

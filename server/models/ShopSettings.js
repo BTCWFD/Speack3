@@ -26,6 +26,26 @@ class ShopSettingsModel {
         return await this.get();
     }
 
+    // La tienda arranca abierta: exigir configurarla para poder vender seria
+    // dejarla muda tras el primer despliegue.
+    async isOpen() {
+        const settings = await this.get();
+        return settings?.open !== false;
+    }
+
+    async setOpen(open, byUserId) {
+        const existing = await this.get();
+        const data = { open: Boolean(open), openChangedAt: new Date(), openChangedBy: byUserId };
+
+        if (existing) {
+            await shopSettings.update({ _id: SINGLETON_ID }, { $set: data });
+        } else {
+            await shopSettings.insert({ _id: SINGLETON_ID, ...data });
+        }
+
+        return await this.get();
+    }
+
     // Ubicacion desde la que se cotizan los domicilios. Las env vars sirven de
     // respaldo para poder desplegar con la tienda ya ubicada sin tener que
     // entrar a configurarla.
