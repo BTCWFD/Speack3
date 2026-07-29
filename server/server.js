@@ -36,6 +36,15 @@ const resolveCorsOrigins = () => {
         .filter(Boolean);
 
     if (configured && configured.length > 0) {
+        // The `cors` and socket.io packages treat an array as an explicit
+        // allow-list matched by exact string equality, so ["*"] would only
+        // ever match a literal "Origin: *" request header (never sent by a
+        // real client) instead of acting as a wildcard. Unwrap to the bare
+        // string so a single "*" entry is passed through as the true
+        // cors() wildcard.
+        if (configured.length === 1 && configured[0] === '*') {
+            return '*';
+        }
         return configured;
     }
 
