@@ -537,6 +537,45 @@ class ApiService {
         }
     }
 
+    // Aportes voluntarios
+    async getDonationInfo() {
+        try {
+            const response = await this.client.get('/api/donations/info');
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async reportDonation(amountCOP, method, extra = {}) {
+        try {
+            const response = await this.client.post('/api/donations', {
+                amountCOP, method, ...extra
+            });
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async getAllDonations() {
+        try {
+            const response = await this.client.get('/api/donations');
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async updateDonationStatus(donationId, status) {
+        try {
+            const response = await this.client.patch(`/api/donations/${donationId}`, { status });
+            return response.data.donation;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     // Documentos legales
     async getLegalDocuments() {
         try {

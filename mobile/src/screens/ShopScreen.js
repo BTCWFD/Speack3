@@ -47,7 +47,7 @@ const STATUS_COLORS = {
 
 const PAYMENT_METHODS = ['nequi', 'crypto', 'breb'];
 
-const ShopScreen = () => {
+const ShopScreen = ({ navigation }) => {
     const theme = useTheme();
     const { t } = useTranslation();
     const [tab, setTab] = useState('catalog');
@@ -384,6 +384,13 @@ const ShopScreen = () => {
             <Appbar.Header>
                 <Appbar.Content title={t('shop.title')} />
                 <NotificationsBell onOpenOrder={() => setTab('orders')} />
+                {/* La pantalla decide por si sola que mostrar segun el rol, asi
+                    que el acceso puede estar siempre visible. */}
+                <Appbar.Action
+                    icon="store-cog-outline"
+                    accessibilityLabel="Mi tienda"
+                    onPress={() => navigation.navigate('ShopSettings')}
+                />
             </Appbar.Header>
 
             <View style={[styles.tabs, { borderBottomColor: theme.colors.outlineVariant || theme.colors.outline }]}>

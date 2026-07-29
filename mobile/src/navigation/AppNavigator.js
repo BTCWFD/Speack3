@@ -19,6 +19,10 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ShopScreen from '../screens/ShopScreen';
 import ShopAdminScreen from '../screens/ShopAdminScreen';
 import PayoutMethodsScreen from '../screens/PayoutMethodsScreen';
+import DonationsScreen from '../screens/DonationsScreen';
+import SellersScreen from '../screens/SellersScreen';
+import DeliverySlotsScreen from '../screens/DeliverySlotsScreen';
+import ShopSettingsScreen from '../screens/ShopSettingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -48,6 +52,10 @@ const ShopStack = () => (
         <Stack.Screen name="Shop" component={ShopScreen} />
         <Stack.Screen name="ShopAdmin" component={ShopAdminScreen} />
         <Stack.Screen name="PayoutMethods" component={PayoutMethodsScreen} />
+        <Stack.Screen name="ShopSettings" component={ShopSettingsScreen} />
+        <Stack.Screen name="Sellers" component={SellersScreen} />
+        <Stack.Screen name="DeliverySlots" component={DeliverySlotsScreen} />
+        <Stack.Screen name="Donations" component={DonationsScreen} />
     </Stack.Navigator>
 );
 
