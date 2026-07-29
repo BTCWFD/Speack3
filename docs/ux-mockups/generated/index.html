@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Mockups Tienda Speack3</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 2.5rem 1.5rem;
+    background: #0F1115; color: #F5F5F5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 0.25rem; }
+  .subtitle { color: #9E9E9E; margin: 0 0 2.5rem; font-size: 0.95rem; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  figure {
+    margin: 0; background: #1C1F26; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; overflow: hidden;
+  }
+  figure img { display: block; width: 100%; height: auto; }
+  figcaption { padding: 1rem 1.1rem 1.25rem; }
+  figcaption h2 { font-size: 1rem; font-weight: 600; margin: 0 0 0.35rem; color: #F5F5F5; }
+  figcaption p { font-size: 0.85rem; color: #9E9E9E; margin: 0; line-height: 1.5; }
+  .badge {
+    display: inline-block; font-size: 0.7rem; font-weight: 600;
+    color: #4CAF50; background: rgba(76,175,80,0.12);
+    border: 1px solid rgba(76,175,80,0.3); border-radius: 6px;
+    padding: 0.15rem 0.5rem; margin-top: 0.6rem;
+  }
+  footer { text-align: center; color: #9E9E9E; font-size: 0.8rem; margin-top: 3rem; }
+  footer a { color: #4FC3F7; }
+</style>
+</head>
+<body>
+  <h1>Mockups — Tienda Speack3</h1>
+  <p class="subtitle">Dirección visual para la tienda del vendedor y el seguimiento del comprador. Generados con Gemini, revisados y corregidos en una ronda. Detalle de cada prompt en <code>../PROMPTS.md</code>.</p>
+
+  <div class="grid">
+    <figure>
+      <img src="pasarela-vendedor.png" alt="Pasarela de pedidos del vendedor, tabs por etapa con badge de cantidad">
+      <figcaption>
+        <h2>1. Pasarela del vendedor</h2>
+        <p>Menú de 7 opciones → tabs de etapa con contador y un solo botón de acción por pedido.</p>
+        <span class="badge">Corregido: barra superior</span>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <img src="catalogo-carrito.png" alt="Checkout en 4 secciones numeradas: qué, cuándo, cómo recibe, cómo paga">
+      <figcaption>
+        <h2>2. Catálogo y checkout</h2>
+        <p>Diálogo mezclado → 4 secciones numeradas, una decisión a la vez.</p>
+        <span class="badge">Corregido: idiomas mezclados, producto sin etiqueta</span>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <img src="seguimiento-comprador.png" alt="Línea de tiempo de 6 pasos con botón ver ubicación en 'en camino'">
+      <figcaption>
+        <h2>3. Seguimiento del comprador</h2>
+        <p>Chip binario → línea de tiempo de 6 pasos, "Ver ubicación" solo en "En camino".</p>
+        <span class="badge">Corregido: chip de tarjeta entregada</span>
+      </figcaption>
+    </figure>
+
+    <figure>
+      <img src="centro-de-mando-vendedor.png" alt="Centro de mando del vendedor con toggles de tienda abierta y en línea">
+      <figcaption>
+        <h2>4. Centro de mando del vendedor</h2>
+        <p>Lista plana → hero cards para lo urgente (abierta/en línea) + grilla de administración.</p>
+        <span class="badge">Corregido: código hex filtrado como texto</span>
+      </figcaption>
+    </figure>
+  </div>
+
+  <footer>Speack3 · docs/ux-mockups/generated · ver también <a href="../PROMPTS.md">PROMPTS.md</a></footer>
+</body>
+</html>
