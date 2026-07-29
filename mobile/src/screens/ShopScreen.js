@@ -16,6 +16,8 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
 import ApiService from '../services/ApiService';
+import OrderTimeline from '../components/OrderTimeline';
+import NotificationsBell from '../components/NotificationsBell';
 
 const formatCOP = (value) => `$${Number(value || 0).toLocaleString('es-CO')}`;
 
@@ -66,6 +68,8 @@ const ShopScreen = () => {
     const [payMethod, setPayMethod] = useState(null);
     const [payRef, setPayRef] = useState('');
     const [paying, setPaying] = useState(false);
+
+    const [repeatSource, setRepeatSource] = useState(null);
 
     const loadCatalog = useCallback(async () => {
         setLoadingCatalog(true);
@@ -146,6 +150,66 @@ const ShopScreen = () => {
         setPayRef('');
     };
 
+    // Repetir reutiliza el selector de dia/hora del checkout: hay que elegir
+    // una entrega nueva, y el servidor revalida cupo y precios.
+    const openRepeat = (order) => {
+        setRepeatSource(order);
+        setSelectedDay(null);
+        setSelectedSlot(null);
+    };
+
+    const submitRepeat = async () => {
+        if (!repeatSource || !selectedDay || !selectedSlot) return;
+
+        const when = new Date(selectedDay);
+        when.setHours(SLOT_HOURS[selectedSlot], 0, 0, 0);
+
+        setSubmitting(true);
+        try {
+            const result = await ApiService.repeatOrder(repeatSource._id, when.toISOString());
+            setRepeatSource(null);
+            await loadOrders();
+
+            // El total puede haber cambiado desde el pedido original, asi que se
+            // dice explicitamente en vez de dejar que lo note al pagar.
+            const cambioPrecio = result.order.totalCOP !== repeatSource.totalCOP;
+            const faltantes = result.unavailable?.length
+                ? `\n\nNo se pudo incluir: ${result.unavailable.join(', ')}`
+                : '';
+
+            Alert.alert(
+                'Pedido repetido',
+                `Total: ${formatCOP(result.order.totalCOP)}` +
+                (cambioPrecio ? ` (antes ${formatCOP(repeatSource.totalCOP)})` : '') +
+                faltantes
+            );
+        } catch (error) {
+            Alert.alert(t('common.error'), error.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // A donde transferir. Se consulta al abrir y no se guarda: son datos
+    // personales del vendedor y no tienen por que quedar en el telefono.
+    const showPayoutInfo = async (order) => {
+        try {
+            const info = await ApiService.getPayoutForOrder(order._id);
+            const lineas = [
+                info.payTo.nequi ? `Nequi: ${info.payTo.nequi}` : null,
+                info.payTo.breb ? `Bre-B: ${info.payTo.breb}` : null
+            ].filter(Boolean);
+
+            Alert.alert(
+                `Pagar ${formatCOP(info.amountCOP)}`,
+                `A nombre de ${info.payTo.username}\n\n${lineas.join('\n')}` +
+                '\n\nDespués de transferir, reporta el pago con el botón Pagar.'
+            );
+        } catch (error) {
+            Alert.alert(t('common.error'), error.message);
+        }
+    };
+
     const submitPayment = async () => {
         if (!payMethod) return;
         if (payMethod === 'crypto' && !payRef.trim()) {
@@ -204,6 +268,20 @@ const ShopScreen = () => {
                         date: new Date(item.confirmedDeliveryTime || item.requestedDeliveryTime).toLocaleString('es-CO')
                     })}
                 </Text>
+                {item.delivery ? (
+                    <Text style={[styles.orderMeta, { color: theme.colors.onSurfaceVariant }]}>
+                        🛵 Domicilio a {item.delivery.address || 'punto marcado'} · {formatCOP(item.delivery.feeCOP)}
+                    </Text>
+                ) : null}
+
+                {item.totalSavedCOP > 0 ? (
+                    <Text style={[styles.savedText, { color: '#4CAF50' }]}>
+                        Ahorraste {formatCOP(item.totalSavedCOP)} con la promo
+                    </Text>
+                ) : null}
+
+                <OrderTimeline order={item} />
+
                 <View style={styles.orderFooter}>
                     <Text style={[styles.orderTotal, { color: theme.colors.primary }]}>{formatCOP(item.totalCOP)}</Text>
                     {item.paymentStatus === 'paid' ? (
@@ -228,6 +306,31 @@ const ShopScreen = () => {
                         </Button>
                     )}
                 </View>
+
+                <View style={styles.orderActions}>
+                    {/* Repetir solo tiene sentido en un pedido ya cerrado: si sigue
+                        en curso, lo normal es esperarlo, no duplicarlo. */}
+                    {['delivered', 'cancelled'].includes(item.status) && (
+                        <Button
+                            mode="outlined"
+                            compact
+                            icon="repeat"
+                            onPress={() => openRepeat(item)}
+                        >
+                            Repetir pedido
+                        </Button>
+                    )}
+                    {item.paymentStatus !== 'paid' && item.status !== 'cancelled' && (
+                        <Button
+                            mode="text"
+                            compact
+                            icon="bank-transfer"
+                            onPress={() => showPayoutInfo(item)}
+                        >
+                            ¿A dónde pago?
+                        </Button>
+                    )}
+                </View>
             </Card.Content>
         </Card>
     );
@@ -236,6 +339,7 @@ const ShopScreen = () => {
         <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Appbar.Header>
                 <Appbar.Content title={t('shop.title')} />
+                <NotificationsBell onOpenOrder={() => setTab('orders')} />
             </Appbar.Header>
 
             <View style={[styles.tabs, { borderBottomColor: theme.colors.outlineVariant || theme.colors.outline }]}>
@@ -295,6 +399,59 @@ const ShopScreen = () => {
             )}
 
             <Portal>
+                <Dialog visible={!!repeatSource} onDismiss={() => setRepeatSource(null)}>
+                    <Dialog.Title>Repetir pedido</Dialog.Title>
+                    <Dialog.ScrollArea style={styles.dialogArea}>
+                        <ScrollView>
+                            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                                {repeatSource?.items.map((i) => `${i.emoji} ${i.qty}x ${i.name}`).join('  ·  ')}
+                            </Text>
+                            <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                                El precio se calcula al momento de pedir, así que puede haber cambiado.
+                            </Text>
+
+                            <Text style={styles.dialogLabel}>{t('shop.pickDay')}</Text>
+                            <View style={styles.chipsRow}>
+                                {nextDays().map((day) => (
+                                    <Chip
+                                        key={day.toISOString()}
+                                        selected={selectedDay?.getTime() === day.getTime()}
+                                        onPress={() => setSelectedDay(day)}
+                                        style={styles.chip}
+                                    >
+                                        {day.toLocaleDateString('es-CO', { weekday: 'short', day: 'numeric', month: 'short' })}
+                                    </Chip>
+                                ))}
+                            </View>
+
+                            <Text style={styles.dialogLabel}>{t('shop.pickSlot')}</Text>
+                            <View style={styles.chipsRow}>
+                                {Object.keys(SLOT_HOURS).map((slot) => (
+                                    <Chip
+                                        key={slot}
+                                        selected={selectedSlot === slot}
+                                        onPress={() => setSelectedSlot(slot)}
+                                        style={styles.chip}
+                                    >
+                                        {t(`shop.slot.${slot}`)}
+                                    </Chip>
+                                ))}
+                            </View>
+                        </ScrollView>
+                    </Dialog.ScrollArea>
+                    <Dialog.Actions>
+                        <Button onPress={() => setRepeatSource(null)}>{t('common.cancel')}</Button>
+                        <Button
+                            mode="contained"
+                            disabled={!selectedDay || !selectedSlot || submitting}
+                            loading={submitting}
+                            onPress={submitRepeat}
+                        >
+                            Repetir
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
+
                 <Dialog visible={checkoutVisible} onDismiss={() => setCheckoutVisible(false)}>
                     <Dialog.Title>{t('shop.deliveryTime')}</Dialog.Title>
                     <Dialog.ScrollArea style={styles.dialogArea}>
@@ -414,6 +571,8 @@ const styles = StyleSheet.create({
     orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     orderItems: { flex: 1, fontSize: 14, marginRight: 8 },
     orderMeta: { fontSize: 12, marginTop: 6 },
+    savedText: { fontSize: 12, marginTop: 4, fontWeight: '600' },
+    orderActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
     orderFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, gap: 8 },
     orderTotal: { fontSize: 16, fontWeight: 'bold', flexShrink: 0 },
     // Payment status labels are long in Spanish ("Pago pendiente de confirmar")

@@ -18,6 +18,7 @@ import GroupInfoScreen from '../screens/GroupInfoScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ShopScreen from '../screens/ShopScreen';
 import ShopAdminScreen from '../screens/ShopAdminScreen';
+import PayoutMethodsScreen from '../screens/PayoutMethodsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -46,6 +47,7 @@ const ShopStack = () => (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Shop" component={ShopScreen} />
         <Stack.Screen name="ShopAdmin" component={ShopAdminScreen} />
+        <Stack.Screen name="PayoutMethods" component={PayoutMethodsScreen} />
     </Stack.Navigator>
 );
 

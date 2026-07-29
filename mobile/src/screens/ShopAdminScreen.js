@@ -74,6 +74,11 @@ const ShopAdminScreen = ({ navigation }) => {
             <Appbar.Header>
                 <Appbar.BackAction onPress={() => navigation.goBack()} />
                 <Appbar.Content title={t('shop.adminTitle')} />
+                <Appbar.Action
+                    icon="bank-transfer"
+                    accessibilityLabel="Datos de cobro"
+                    onPress={() => navigation.navigate('PayoutMethods')}
+                />
             </Appbar.Header>
 
             <FlatList

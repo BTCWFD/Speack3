@@ -317,6 +317,217 @@ class ApiService {
         }
     }
 
+    // Vuelve a pedir lo mismo de un pedido anterior. El servidor recalcula
+    // precios y domicilio, asi que el total puede diferir del pedido original.
+    async repeatOrder(orderId, requestedDeliveryTime) {
+        try {
+            const response = await this.client.post(`/api/orders/${orderId}/repeat`, {
+                requestedDeliveryTime
+            });
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Avisos
+    async getNotifications({ unreadOnly = false, limit = 50 } = {}) {
+        try {
+            const response = await this.client.get('/api/notifications', {
+                params: { ...(unreadOnly ? { unread: '1' } : {}), limit }
+            });
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async markNotificationRead(id) {
+        try {
+            const response = await this.client.patch(`/api/notifications/${id}/read`);
+            return response.data.notification;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async markAllNotificationsRead() {
+        try {
+            const response = await this.client.post('/api/notifications/read-all');
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Domicilios
+    async getDeliveryConfig() {
+        try {
+            const response = await this.client.get('/api/delivery/config');
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async quoteDelivery(lat, lng) {
+        try {
+            const response = await this.client.post('/api/delivery/quote', { lat, lng });
+            return response.data.quote;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async setDeliveryOrigin(lat, lng, address) {
+        try {
+            const response = await this.client.put('/api/delivery/origin', { lat, lng, address });
+            return response.data.location;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Franjas de entrega
+    async getSlotAvailability(days = 14) {
+        try {
+            const response = await this.client.get('/api/slots/availability', { params: { days } });
+            return response.data.availability;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async getSlots() {
+        try {
+            const response = await this.client.get('/api/slots');
+            return response.data.slots;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async createSlot(slot) {
+        try {
+            const response = await this.client.post('/api/slots', slot);
+            return response.data.slot;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async deleteSlot(slotId) {
+        try {
+            await this.client.delete(`/api/slots/${slotId}`);
+            return true;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Datos de cobro del vendedor
+    async getMyPayoutMethods() {
+        try {
+            const response = await this.client.get('/api/payout-methods/mine');
+            return response.data.payout;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async setMyPayoutMethods(payout) {
+        try {
+            const response = await this.client.put('/api/payout-methods/mine', payout);
+            return response.data.payout;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // A donde debe pagar el comprador de un pedido concreto.
+    async getPayoutForOrder(orderId) {
+        try {
+            const response = await this.client.get(`/api/payout-methods/for-order/${orderId}`);
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Vendedores (solo admin)
+    async getSellers() {
+        try {
+            const response = await this.client.get('/api/sellers');
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async getSellerServices() {
+        try {
+            const response = await this.client.get('/api/sellers/services');
+            return response.data.services;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async addSeller(email, services) {
+        try {
+            const response = await this.client.post('/api/sellers', { email, services });
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async updateSeller(sellerId, update) {
+        try {
+            const response = await this.client.patch(`/api/sellers/${sellerId}`, update);
+            return response.data.seller;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async removeSeller(sellerId) {
+        try {
+            await this.client.delete(`/api/sellers/${sellerId}`);
+            return true;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Documentos legales
+    async getLegalDocuments() {
+        try {
+            const response = await this.client.get('/api/legal');
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async getLegalDocument(id) {
+        try {
+            const response = await this.client.get(`/api/legal/${id}`);
+            return response.data.document;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async acceptLegal(accept) {
+        try {
+            const response = await this.client.post('/api/legal/accept', { accept });
+            return response.data.legalAccepted;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     // Error handling
     handleError(error) {
         if (error.response) {
