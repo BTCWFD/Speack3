@@ -14,6 +14,7 @@ const ShopSettingsScreen = ({ navigation }) => {
     const theme = useTheme();
     const [status, setStatus] = useState(null);
     const [origin, setOrigin] = useState(null);
+    const [reviews, setReviews] = useState(null);
     const [loading, setLoading] = useState(true);
     const [locating, setLocating] = useState(false);
 
@@ -26,6 +27,11 @@ const ShopSettingsScreen = ({ navigation }) => {
             ]);
             setStatus(st);
             setOrigin(cfg.origin);
+            // Solo el admin puede verlas; si no lo es, se ignora el error en
+            // silencio en vez de tumbar toda la pantalla por un dato secundario.
+            if (st.me?.isAdmin) {
+                ApiService.getAllReviews().then(setReviews).catch(() => {});
+            }
         } catch (error) {
             Alert.alert('Error', error.message);
         } finally {
@@ -169,6 +175,29 @@ const ShopSettingsScreen = ({ navigation }) => {
                     </Card>
                 )}
 
+                {isAdmin && reviews && reviews.count > 0 && (
+                    <Card style={styles.card}>
+                        <Card.Content style={styles.reviewsRow}>
+                            <View>
+                                <Text style={styles.reviewsAverage}>{reviews.average.toFixed(1)}</Text>
+                                <View style={styles.reviewsStars}>
+                                    {[1, 2, 3, 4, 5].map((n) => (
+                                        <Icon
+                                            key={n}
+                                            name={n <= Math.round(reviews.average) ? 'star' : 'star-outline'}
+                                            size={14}
+                                            color="#FFC107"
+                                        />
+                                    ))}
+                                </View>
+                            </View>
+                            <Text style={[styles.reviewsCount, { color: theme.colors.onSurfaceVariant }]}>
+                                {reviews.count} {reviews.count === 1 ? 'reseña' : 'reseñas'}
+                            </Text>
+                        </Card.Content>
+                    </Card>
+                )}
+
                 <Card style={styles.card}>
                     {isAdmin && (
                         <>
@@ -245,6 +274,10 @@ const styles = StyleSheet.create({
     originRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
     originText: { flex: 1, fontSize: 13, lineHeight: 19 },
     locationButton: { marginTop: 14 },
+    reviewsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    reviewsAverage: { fontSize: 28, fontWeight: 'bold' },
+    reviewsStars: { flexDirection: 'row', gap: 1 },
+    reviewsCount: { fontSize: 13 },
     buyerNote: { fontSize: 13, textAlign: 'center', paddingHorizontal: 24, marginTop: 8, lineHeight: 19 }
 });
 

@@ -50,6 +50,44 @@ router.put('/me/avatar', auth, async (req, res) => {
     }
 });
 
+// @route   PUT /api/users/me/favorite-address
+// @desc    Guardar la direccion de entrega favorita, para no tener que
+//          compartir GPS cada vez que se repite un pedido.
+// @access  Private
+router.put('/me/favorite-address', auth, async (req, res) => {
+    try {
+        const { lat, lng, address } = req.body;
+        const latNum = Number(lat);
+        const lngNum = Number(lng);
+
+        if (!Number.isFinite(latNum) || latNum < -90 || latNum > 90) {
+            return res.status(400).json({ error: 'lat invalida' });
+        }
+        if (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180) {
+            return res.status(400).json({ error: 'lng invalida' });
+        }
+
+        const favoriteAddress = { lat: latNum, lng: lngNum, address: address || '', savedAt: new Date() };
+        await User.findByIdAndUpdate(req.userId, { favoriteAddress });
+        res.json({ message: 'Dirección favorita guardada', favoriteAddress });
+    } catch (error) {
+        console.error('Save favorite address error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   DELETE /api/users/me/favorite-address
+// @access  Private
+router.delete('/me/favorite-address', auth, async (req, res) => {
+    try {
+        await User.findByIdAndUpdate(req.userId, { favoriteAddress: null });
+        res.json({ message: 'Dirección favorita eliminada' });
+    } catch (error) {
+        console.error('Delete favorite address error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 // @route   GET /api/users/:id
 // @desc    Get user by ID
 // @access  Private

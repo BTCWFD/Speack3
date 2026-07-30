@@ -20,6 +20,7 @@ import ApiService from '../services/ApiService';
 import OrderTimeline from '../components/OrderTimeline';
 import NotificationsBell from '../components/NotificationsBell';
 import DeliveryPicker from '../components/DeliveryPicker';
+import PayoutQRDialog from '../components/PayoutQRDialog';
 
 const formatCOP = (value) => `$${Number(value || 0).toLocaleString('es-CO')}`;
 
@@ -79,6 +80,12 @@ const ShopScreen = ({ navigation }) => {
 
     const [repeatSource, setRepeatSource] = useState(null);
     const [destination, setDestination] = useState(null);
+    const [payoutInfo, setPayoutInfo] = useState(null);
+
+    const [reviewOrder, setReviewOrder] = useState(null);
+    const [reviewRating, setReviewRating] = useState(0);
+    const [reviewComment, setReviewComment] = useState('');
+    const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
     const loadCatalog = useCallback(async () => {
         setLoadingCatalog(true);
@@ -254,21 +261,31 @@ const ShopScreen = ({ navigation }) => {
         );
     };
 
+    const openReview = (order) => {
+        setReviewOrder(order);
+        setReviewRating(0);
+        setReviewComment('');
+    };
+
+    const submitReview = async () => {
+        if (!reviewRating) return;
+        setReviewSubmitting(true);
+        try {
+            await ApiService.reviewOrder(reviewOrder._id, reviewRating, reviewComment.trim());
+            setReviewOrder(null);
+            loadOrders();
+        } catch (e) {
+            Alert.alert(t('common.error'), e.message);
+        } finally {
+            setReviewSubmitting(false);
+        }
+    };
+
     // A donde transferir. Se consulta al abrir y no se guarda: son datos
     // personales del vendedor y no tienen por que quedar en el telefono.
     const showPayoutInfo = async (order) => {
         try {
-            const info = await ApiService.getPayoutForOrder(order._id);
-            const lineas = [
-                info.payTo.nequi ? `Nequi: ${info.payTo.nequi}` : null,
-                info.payTo.breb ? `Bre-B: ${info.payTo.breb}` : null
-            ].filter(Boolean);
-
-            Alert.alert(
-                `Pagar ${formatCOP(info.amountCOP)}`,
-                `A nombre de ${info.payTo.username}\n\n${lineas.join('\n')}` +
-                '\n\nDespués de transferir, reporta el pago con el botón Pagar.'
-            );
+            setPayoutInfo(await ApiService.getPayoutForOrder(order._id));
         } catch (error) {
             Alert.alert(t('common.error'), error.message);
         }
@@ -416,7 +433,39 @@ const ShopScreen = ({ navigation }) => {
                             Cancelar
                         </Button>
                     )}
+                    {/* Solo entregados, y una sola vez: la reseña no se puede
+                        editar despues de puesta (asi lo exige el servidor). */}
+                    {item.status === 'delivered' && !item.review && (
+                        <Button
+                            mode="text"
+                            compact
+                            icon="star-outline"
+                            onPress={() => openReview(item)}
+                        >
+                            Calificar pedido
+                        </Button>
+                    )}
                 </View>
+
+                {item.review && (
+                    <View style={styles.reviewBox}>
+                        <View style={styles.reviewStars}>
+                            {[1, 2, 3, 4, 5].map((n) => (
+                                <Icon
+                                    key={n}
+                                    name={n <= item.review.rating ? 'star' : 'star-outline'}
+                                    size={16}
+                                    color="#FFC107"
+                                />
+                            ))}
+                        </View>
+                        {!!item.review.comment && (
+                            <Text style={[styles.reviewComment, { color: theme.colors.onSurfaceVariant }]}>
+                                “{item.review.comment}”
+                            </Text>
+                        )}
+                    </View>
+                )}
             </Card.Content>
         </Card>
     );
@@ -697,6 +746,49 @@ const ShopScreen = ({ navigation }) => {
             {(loadingCatalog && tab === 'catalog' && products.length === 0) && (
                 <ActivityIndicator style={styles.loader} />
             )}
+
+            <PayoutQRDialog visible={!!payoutInfo} onDismiss={() => setPayoutInfo(null)} info={payoutInfo} />
+
+            <Portal>
+                <Dialog visible={!!reviewOrder} onDismiss={() => setReviewOrder(null)}>
+                    <Dialog.Title>Calificar pedido</Dialog.Title>
+                    <Dialog.Content>
+                        <View style={styles.starPicker}>
+                            {[1, 2, 3, 4, 5].map((n) => (
+                                <IconButton
+                                    key={n}
+                                    icon={n <= reviewRating ? 'star' : 'star-outline'}
+                                    iconColor="#FFC107"
+                                    size={32}
+                                    onPress={() => setReviewRating(n)}
+                                />
+                            ))}
+                        </View>
+                        <TextInput
+                            mode="outlined"
+                            label="Comentario (opcional)"
+                            value={reviewComment}
+                            onChangeText={setReviewComment}
+                            multiline
+                            style={styles.notesInput}
+                        />
+                        <Text style={[styles.helperText, { color: theme.colors.onSurfaceVariant }]}>
+                            No se puede editar después de enviarla.
+                        </Text>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => setReviewOrder(null)}>{t('common.cancel')}</Button>
+                        <Button
+                            mode="contained"
+                            disabled={!reviewRating || reviewSubmitting}
+                            loading={reviewSubmitting}
+                            onPress={submitReview}
+                        >
+                            Enviar
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
         </View>
     );
 };
@@ -727,6 +819,10 @@ const styles = StyleSheet.create({
     orderItems: { flex: 1, fontSize: 14, marginRight: 8 },
     orderMeta: { fontSize: 12, marginTop: 6 },
     savedText: { fontSize: 12, marginTop: 4, fontWeight: '600' },
+    reviewBox: { marginTop: 10 },
+    reviewStars: { flexDirection: 'row', gap: 2 },
+    reviewComment: { fontSize: 13, fontStyle: 'italic', marginTop: 4 },
+    starPicker: { flexDirection: 'row', justifyContent: 'center', marginBottom: 8 },
     receiptSection: { marginTop: 14 },
     receiptPreviewRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 10 },
     receiptThumb: { width: 64, height: 64, borderRadius: 6, resizeMode: 'cover' },

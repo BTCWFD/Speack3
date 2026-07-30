@@ -135,6 +135,25 @@ class ApiService {
         }
     }
 
+    // Dirección de entrega favorita, para no compartir GPS cada vez.
+    async setFavoriteAddress(lat, lng, address) {
+        try {
+            const response = await this.client.put('/api/users/me/favorite-address', { lat, lng, address });
+            return response.data.favoriteAddress;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async deleteFavoriteAddress() {
+        try {
+            await this.client.delete('/api/users/me/favorite-address');
+            return true;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     // Profile photo (base64 data URI)
     async updateAvatar(avatar) {
         try {
@@ -323,6 +342,25 @@ class ApiService {
         try {
             const response = await this.client.patch(`/api/orders/${orderId}/confirm-cash`, { collected });
             return response.data.order;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    // Calificar un pedido ya entregado (una sola vez).
+    async reviewOrder(orderId, rating, comment) {
+        try {
+            const response = await this.client.post(`/api/orders/${orderId}/review`, { rating, comment });
+            return response.data.order;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
+    async getAllReviews() {
+        try {
+            const response = await this.client.get('/api/orders/reviews/all');
+            return response.data;
         } catch (error) {
             throw this.handleError(error);
         }

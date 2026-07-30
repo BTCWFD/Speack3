@@ -187,6 +187,10 @@ const PORT = process.env.PORT || 3000;
 const startServer = async () => {
     await connectDB();
 
+    // Revisa pedidos estancados mientras el proceso este vivo. Nunca durante
+    // los tests: crearia timers que jest reporta como fugas.
+    require('./services/stalledOrderChecker').start();
+
     server.listen(PORT, () => {
         console.log(`\n🚀 Server running on port ${PORT}`);
         console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);

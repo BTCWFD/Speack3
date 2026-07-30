@@ -65,4 +65,36 @@ async function notifyStatusChange(order, status) {
     });
 }
 
-module.exports = { notify, notifyNewOrder, notifyStatusChange, shopStaffIds, STATUS_LABEL };
+// Aviso al vendedor de que le calificaron un pedido.
+async function notifyNewReview(order, buyer) {
+    const stars = '⭐'.repeat(order.review.rating);
+    const staff = await shopStaffIds();
+
+    return await Promise.all(staff.map((userId) => notify(userId, {
+        type: 'order:review',
+        title: 'Nueva reseña',
+        body: `${buyer?.username || 'Alguien'} calificó su pedido: ${stars}` +
+            (order.review.comment ? ` — "${order.review.comment}"` : ''),
+        orderId: order._id
+    })));
+}
+
+// Aviso de que un pedido lleva demasiado tiempo sin avanzar (se quedo "listo"
+// o "en camino" mas de lo esperado). Se marca stalledNotifiedAt en el pedido
+// para no repetir el mismo aviso en cada barrido del temporizador.
+async function notifyStalledOrder(order) {
+    const staff = await shopStaffIds();
+    const resumen = order.items.map((i) => `${i.qty}x ${i.emoji} ${i.name}`).join(', ');
+
+    return await Promise.all(staff.map((userId) => notify(userId, {
+        type: 'order:stalled',
+        title: 'Pedido estancado',
+        body: `${resumen} lleva rato en "${STATUS_LABEL[order.status] || order.status}" sin avanzar`,
+        orderId: order._id
+    })));
+}
+
+module.exports = {
+    notify, notifyNewOrder, notifyStatusChange, notifyNewReview, notifyStalledOrder,
+    shopStaffIds, STATUS_LABEL
+};

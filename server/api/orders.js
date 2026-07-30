@@ -14,7 +14,7 @@ const { quote: quoteDelivery } = require('../services/deliveryService');
 const { validateReceipt } = require('../services/receiptValidator');
 const { aggregatePaymentStatus } = require('../services/paymentSplitService');
 const ShopSettings = require('../models/ShopSettings');
-const { notifyNewOrder, notifyStatusChange } = require('../services/notificationService');
+const { notifyNewOrder, notifyStatusChange, notifyNewReview } = require('../services/notificationService');
 
 // Un comprobante es una imagen en base64 de ~1-3 MB. Devolverla dentro de cada
 // pedido haria que listar 20 pedidos moviera decenas de megas y reventara la
@@ -478,6 +478,10 @@ router.patch('/:id/status', [
 
         const update = {
             status: req.body.status,
+            // Al cambiar de estado se limpia el aviso de "estancado": si se
+            // vuelve a trabar en el nuevo estado, tiene que poder avisar de
+            // nuevo, no quedar callado para siempre por un aviso viejo.
+            stalledNotifiedAt: null,
             $push: { statusHistory: { status: req.body.status, at: new Date() } }
         };
         if (req.body.status === 'confirmed' && req.body.confirmedDeliveryTime) {
@@ -731,6 +735,86 @@ router.patch('/:id/confirm-cash', [
         res.json({ message: 'Efectivo actualizado', order: stripReceipt(updated) });
     } catch (error) {
         console.error('Confirm cash error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   POST /api/orders/:id/review
+// @desc    Calificar un pedido ya entregado. Una sola vez por pedido: la
+//          reseña no se puede editar despues de puesta, para que sea un
+//          reflejo honesto del momento de la entrega, no algo retocable.
+// @access  Private (dueno del pedido)
+router.post('/:id/review', [
+    auth,
+    body('rating').isInt({ min: 1, max: 5 }).withMessage('rating debe ser un entero de 1 a 5'),
+    body('comment').optional().isLength({ max: 500 }).withMessage('El comentario no puede pasar de 500 caracteres')
+], async (req, res) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const order = await Order.findById(req.params.id);
+        if (!order) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+        if (order.buyerId !== req.userId) {
+            return res.status(403).json({ error: 'Not your order' });
+        }
+        if (order.status !== 'delivered') {
+            return res.status(409).json({
+                error: 'Solo se pueden calificar pedidos ya entregados',
+                reason: 'not_delivered'
+            });
+        }
+        if (order.review) {
+            return res.status(409).json({ error: 'Ese pedido ya tiene una reseña', reason: 'already_reviewed' });
+        }
+
+        const review = {
+            rating: req.body.rating,
+            comment: (req.body.comment || '').trim(),
+            createdAt: new Date()
+        };
+        const updated = await Order.findByIdAndUpdate(req.params.id, { review });
+
+        try {
+            await notifyNewReview(updated, req.user);
+        } catch (notifyError) {
+            console.error('Review notification failed:', notifyError);
+        }
+
+        res.status(201).json({ message: 'Reseña guardada', order: stripReceipt(updated) });
+    } catch (error) {
+        console.error('Create review error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   GET /api/orders/reviews/all
+// @desc    Todas las reseñas y el promedio, para que el vendedor vea su
+//          reputacion de un vistazo.
+// @access  Private (shop admin only)
+router.get('/reviews/all', [auth, shopAdmin], async (req, res) => {
+    try {
+        const all = await Order.find({});
+        const reviewed = all.filter((o) => o.review).map((o) => ({
+            orderId: o._id,
+            buyerId: o.buyerId,
+            rating: o.review.rating,
+            comment: o.review.comment,
+            createdAt: o.review.createdAt,
+            items: o.items.map((i) => `${i.emoji} ${i.name}`)
+        }));
+
+        const average = reviewed.length > 0
+            ? reviewed.reduce((sum, r) => sum + r.rating, 0) / reviewed.length
+            : null;
+
+        res.json({ reviews: reviewed.sort((a, b) => b.createdAt - a.createdAt), average, count: reviewed.length });
+    } catch (error) {
+        console.error('List reviews error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 });

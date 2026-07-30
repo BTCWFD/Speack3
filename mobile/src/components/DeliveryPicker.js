@@ -21,11 +21,18 @@ const DeliveryPicker = ({ value, onChange }) => {
     const [quote, setQuote] = useState(null);
     const [error, setError] = useState(null);
     const [address, setAddress] = useState(value?.address || '');
+    const [favorite, setFavorite] = useState(null);
+    const [savingFavorite, setSavingFavorite] = useState(false);
 
     useEffect(() => {
         (async () => {
             try {
-                setConfig(await ApiService.getDeliveryConfig());
+                const [cfg, me] = await Promise.all([
+                    ApiService.getDeliveryConfig(),
+                    ApiService.getCurrentUser()
+                ]);
+                setConfig(cfg);
+                setFavorite(me.favoriteAddress || null);
             } catch (e) {
                 setError(e.message);
             } finally {
@@ -34,15 +41,18 @@ const DeliveryPicker = ({ value, onChange }) => {
         })();
     }, []);
 
+    const quoteAndSet = useCallback(async (lat, lng, addr) => {
+        const q = await ApiService.quoteDelivery(lat, lng);
+        setQuote(q);
+        onChange({ lat, lng, address: addr });
+    }, [onChange]);
+
     const useMyLocation = useCallback(async () => {
         setLocating(true);
         setError(null);
         try {
             const pos = await LocationService.getCurrentPosition();
-            const q = await ApiService.quoteDelivery(pos.lat, pos.lng);
-
-            setQuote(q);
-            onChange({ lat: pos.lat, lng: pos.lng, address });
+            await quoteAndSet(pos.lat, pos.lng, address);
         } catch (e) {
             setError(e.message);
             setQuote(null);
@@ -50,7 +60,41 @@ const DeliveryPicker = ({ value, onChange }) => {
         } finally {
             setLocating(false);
         }
-    }, [address, onChange]);
+    }, [address, onChange, quoteAndSet]);
+
+    const useFavorite = useCallback(async () => {
+        if (!favorite) return;
+        setLocating(true);
+        setError(null);
+        try {
+            setAddress(favorite.address || '');
+            await quoteAndSet(favorite.lat, favorite.lng, favorite.address || '');
+        } catch (e) {
+            setError(e.message);
+            setQuote(null);
+            onChange(null);
+        } finally {
+            setLocating(false);
+        }
+    }, [favorite, onChange, quoteAndSet]);
+
+    const saveFavorite = async () => {
+        if (!value) return;
+        setSavingFavorite(true);
+        try {
+            const saved = await ApiService.setFavoriteAddress(value.lat, value.lng, address);
+            setFavorite(saved);
+        } catch (e) {
+            setError(e.message);
+        } finally {
+            setSavingFavorite(false);
+        }
+    };
+
+    // Coincide con la favorita si son (aprox) el mismo punto, para no ofrecer
+    // "guardar" un lugar que ya esta guardado.
+    const matchesFavorite = favorite && value &&
+        Math.abs(favorite.lat - value.lat) < 0.0001 && Math.abs(favorite.lng - value.lng) < 0.0001;
 
     const clearDelivery = () => {
         setQuote(null);
@@ -103,6 +147,19 @@ const DeliveryPicker = ({ value, onChange }) => {
                 </Button>
             </View>
 
+            {favorite && (
+                <Button
+                    mode="text"
+                    compact
+                    icon="star"
+                    onPress={useFavorite}
+                    disabled={locating}
+                    style={styles.favoriteButton}
+                >
+                    Usar dirección favorita{favorite.address ? ` (${favorite.address})` : ''}
+                </Button>
+            )}
+
             {config?.copPerKm ? (
                 <Text style={[styles.hint, { color: theme.colors.onSurfaceVariant }]}>
                     {formatCOP(config.copPerKm)} por km desde {config.origin?.address || 'la tienda'}
@@ -123,18 +180,33 @@ const DeliveryPicker = ({ value, onChange }) => {
             ) : null}
 
             {value ? (
-                <TextInput
-                    mode="outlined"
-                    label="Punto de referencia (opcional)"
-                    placeholder="Apto, torre, color de la puerta…"
-                    value={address}
-                    onChangeText={(text) => {
-                        setAddress(text);
-                        onChange({ ...value, address: text });
-                    }}
-                    dense
-                    style={styles.addressInput}
-                />
+                <>
+                    <TextInput
+                        mode="outlined"
+                        label="Punto de referencia (opcional)"
+                        placeholder="Apto, torre, color de la puerta…"
+                        value={address}
+                        onChangeText={(text) => {
+                            setAddress(text);
+                            onChange({ ...value, address: text });
+                        }}
+                        dense
+                        style={styles.addressInput}
+                    />
+                    {!matchesFavorite && (
+                        <Button
+                            mode="text"
+                            compact
+                            icon="star-outline"
+                            onPress={saveFavorite}
+                            loading={savingFavorite}
+                            disabled={savingFavorite}
+                            style={styles.saveFavoriteButton}
+                        >
+                            Guardar como dirección favorita
+                        </Button>
+                    )}
+                </>
             ) : null}
         </View>
     );
@@ -154,6 +226,8 @@ const styles = StyleSheet.create({
     },
     quoteText: { fontSize: 14, fontWeight: '600' },
     addressInput: { marginTop: 10 },
+    favoriteButton: { alignSelf: 'flex-start', marginTop: 4 },
+    saveFavoriteButton: { alignSelf: 'flex-start', marginTop: 2 },
     loader: { marginVertical: 16 },
     unavailable: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
     unavailableText: { flex: 1, fontSize: 12 }
