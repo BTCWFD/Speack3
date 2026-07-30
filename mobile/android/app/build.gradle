@@ -82,6 +82,14 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 3
         versionName "1.2"
+        // reactNativeArchitectures (gradle.properties) solo controla que se
+        // COMPILA; los .so de React Native/Hermes llegan pre-compilados para
+        // las 4 arquitecturas desde Maven y el empaquetado los mete todos si
+        // no se filtra aqui explicitamente. x86/x86_64 son solo para
+        // emuladores de escritorio — ningun telefono real los necesita.
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a"
+        }
     }
     signingConfigs {
         debug {
