@@ -35,6 +35,12 @@ Rather than the per-recipient fan-out below, the draft uses a shared symmetric
   "shield-check" badge for 1-to-1 (Signal, verified) chats and a
   "shield-half-full" badge for groups, each opening a plain-language
   explanation of what is and isn't protected (`ChatScreen`, `GroupChatScreen`).
+- `distributeGroupKey` sends the control message through
+  `SocketService.sendDirectMessage` rather than emitting straight to the
+  socket, so a member who is offline at the moment of rotation gets it
+  persisted to the same offline queue as regular messages and retried by
+  `flushQueue()` on reconnect. Covered by
+  `mobile/__tests__/groupKeyDelivery.test.js`.
 
 Known gaps before this can be promoted out of draft:
 - It is still a **static symmetric key between rotations**: no per-message
@@ -42,14 +48,14 @@ Known gaps before this can be promoted out of draft:
   until the next rotation (member removal). This is **not** Signal
   "sender keys".
 - Removal-triggered rotation only runs on the *admin's* device (the one that
-  calls the remove-member action) and depends on that device being online to
-  redistribute the new key over pairwise Signal sessions to everyone else;
-  members who are offline at that moment receive it once they reconnect and
-  Socket.IO's client-side emit buffer flushes (best-effort, not guaranteed
-  delivery — no ack/retry loop yet).
+  calls the remove-member action); if that device is offline at the moment of
+  removal, the rotation itself is only attempted once it reconnects (it isn't
+  queued as a standalone operation — only the resulting key-distribution
+  messages are, once generated).
 - Needs on-device testing of the Signal session handshake used for key delivery;
   the group path is still **DRAFT / not yet fully device-verified** (the
-  rotation logic itself is unit-tested; the end-to-end pairwise delivery is not).
+  rotation and delivery-queueing logic are unit-tested; the end-to-end
+  pairwise Signal handshake is not).
 
 Resolved:
 - ~~crypto-js RNG is not a hardware CSPRNG~~ — the key and IVs now come from the

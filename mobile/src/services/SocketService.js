@@ -295,6 +295,14 @@ class SocketService {
 
     // Send the group's symmetric key to each member over their pairwise Signal
     // session (as a control message tunnelled through message:direct).
+    //
+    // Reuses sendDirectMessage rather than emitting straight to the socket: if
+    // a member is offline (or the connection drops mid-send) right now, the
+    // control message is persisted to the same offline queue as regular
+    // messages and re-sent on reconnect via flushQueue(), instead of relying
+    // only on socket.io's best-effort in-memory emit buffer. This matters
+    // most right after a member removal — the whole point of rotating the key
+    // is that everyone still in the group actually gets the new one.
     async distributeGroupKey(groupId, keyB64, memberIds) {
         const me = await StorageService.getCurrentUser();
         const myId = me?.id || me?._id;
@@ -303,13 +311,7 @@ class SocketService {
         for (const memberId of memberIds) {
             if (!memberId || memberId === myId) continue;
             try {
-                await this.ensureSession(memberId);
-                const encrypted = await SignalService.encryptMessage(memberId, control);
-                this.socket.emit('message:direct', {
-                    recipientId: memberId,
-                    encryptedContent: JSON.stringify(encrypted),
-                    tempId: `gk_${groupId}_${memberId}`
-                });
+                await this.sendDirectMessage(memberId, control, `gk_${groupId}_${memberId}`);
             } catch (error) {
                 console.error('Distribute group key error for', memberId, error);
             }
