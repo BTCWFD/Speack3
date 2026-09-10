@@ -25,18 +25,40 @@ Rather than the per-recipient fan-out below, the draft uses a shared symmetric
 - `SocketService.sendGroupMessage` encrypts with the group key;
   `message:receive`/`message:edited` decrypt group payloads with it.
 - Adding a member re-shares the existing key (`GroupInfoScreen`).
+- Removing a member **rotates** the key: `SocketService.rotateGroupKey`
+  generates a fresh key, overwrites it locally, and re-shares it with the
+  remaining members only (`GroupInfoScreen.handleRemove`). A removed member's
+  cached copy of the old key goes stale — it decrypts history up to the point
+  of removal, but nothing sent afterwards. Covered by
+  `mobile/__tests__/groupKeyRotation.test.js`.
+- The chat header now shows an explicit, honest encryption indicator: a
+  "shield-check" badge for 1-to-1 (Signal, verified) chats and a
+  "shield-half-full" badge for groups, each opening a plain-language
+  explanation of what is and isn't protected (`ChatScreen`, `GroupChatScreen`).
 
 Known gaps before this can be promoted out of draft:
-- It is still a **static symmetric key**: no per-message forward secrecy and no
-  automatic re-key when a member leaves. A removed member who kept the key can
-  still read future group traffic. This is **not** Signal "sender keys".
+- It is still a **static symmetric key between rotations**: no per-message
+  forward secrecy — a compromise of the current key still exposes traffic
+  until the next rotation (member removal). This is **not** Signal
+  "sender keys".
+- Removal-triggered rotation only runs on the *admin's* device (the one that
+  calls the remove-member action) and depends on that device being online to
+  redistribute the new key over pairwise Signal sessions to everyone else;
+  members who are offline at that moment receive it once they reconnect and
+  Socket.IO's client-side emit buffer flushes (best-effort, not guaranteed
+  delivery — no ack/retry loop yet).
 - Needs on-device testing of the Signal session handshake used for key delivery;
-  the group path is still **DRAFT / not yet device-verified**.
+  the group path is still **DRAFT / not yet fully device-verified** (the
+  rotation logic itself is unit-tested; the end-to-end pairwise delivery is not).
 
 Resolved:
 - ~~crypto-js RNG is not a hardware CSPRNG~~ — the key and IVs now come from the
   platform CSPRNG (`global.crypto.getRandomValues`). This fixes predictable
   key/IV generation; it does **not** add forward secrecy or sender keys.
+- ~~No re-key when a member leaves~~ — removal now rotates and redistributes
+  the group key (see above). Still not per-message forward secrecy.
+- ~~No UI indication of encryption status~~ — both 1-to-1 and group chat
+  headers now carry an explicit, honestly-worded encryption badge.
 
 ---
 

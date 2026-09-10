@@ -242,6 +242,17 @@ const GroupChatScreen = ({ route, navigation }) => {
                     title={groupName}
                     subtitle={t('group.members', { count: members?.length || 0 })}
                 />
+                <Appbar.Action
+                    icon="shield-half-full"
+                    color={theme.colors.tertiary || theme.colors.primary}
+                    onPress={() =>
+                        Alert.alert(
+                            t('group.encryptionBadgeTitle'),
+                            t('group.encryptionBadgeBody'),
+                            [{ text: t('common.ok') }]
+                        )
+                    }
+                />
                 <Menu
                     visible={menuVisible}
                     onDismiss={() => setMenuVisible(false)}

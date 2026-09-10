@@ -427,6 +427,17 @@ const ChatScreen = ({ route, navigation }) => {
                         subtitle={getSubtitle()}
                     />
                 </TouchableRipple>
+                <Appbar.Action
+                    icon="shield-check"
+                    color={theme.colors.primary}
+                    onPress={() =>
+                        Alert.alert(
+                            t('chat.encryptionBadgeTitle'),
+                            t('chat.encryptionBadgeBody', { name: contactName }),
+                            [{ text: t('common.ok') }]
+                        )
+                    }
+                />
             </Appbar.Header>
 
             <View style={styles.messagesContainer}>

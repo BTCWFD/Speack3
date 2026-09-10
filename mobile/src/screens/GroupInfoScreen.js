@@ -84,6 +84,14 @@ const GroupInfoScreen = ({ route, navigation }) => {
                         setBusy(true);
                         try {
                             await ApiService.removeGroupMember(groupId, memberId);
+                            // Rotate the group key so the removed member's cached
+                            // copy can no longer decrypt future group traffic.
+                            try {
+                                const remaining = memberIds.filter((id) => id !== memberId);
+                                await SocketService.rotateGroupKey(groupId, remaining);
+                            } catch (keyErr) {
+                                console.error('Group key rotation error:', keyErr);
+                            }
                             await loadData();
                         } catch (err) {
                             Alert.alert(t('common.error'), err.message || t('group.couldNotRemove'));

@@ -330,6 +330,22 @@ class SocketService {
         return key;
     }
 
+    // Rotate the group's symmetric key and redistribute it to the given
+    // (remaining) members. Call this when a member is removed: the old key
+    // stays in that member's Keychain, so without a rotation they could still
+    // decrypt any group traffic sent afterwards. Overwriting the local key and
+    // re-sharing it only with the remaining members makes their cached copy
+    // stale going forward. This is still a static key (no per-message forward
+    // secrecy) — see docs/GROUP_ENCRYPTION_DESIGN.md.
+    async rotateGroupKey(groupId, remainingMemberIds) {
+        const key = GroupCryptoService.generateGroupKey();
+        await StorageService.saveGroupKey(groupId, key);
+        if (remainingMemberIds && remainingMemberIds.length) {
+            await this.distributeGroupKey(groupId, key, remainingMemberIds);
+        }
+        return key;
+    }
+
     // Send group message — encrypted with the shared group key (AES-256-CBC +
     // HMAC). The server only ever relays/stores the ciphertext.
     async sendGroupMessage(groupId, message, tempId, _fromQueue = false) {
