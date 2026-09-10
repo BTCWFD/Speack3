@@ -14,6 +14,8 @@ import {
     Menu,
     useTheme
 } from 'react-native-paper';
+import { isToday, isYesterday, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
@@ -21,12 +23,14 @@ import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
 import StorageService from '../services/StorageService';
 import { useAuth } from '../context/AuthContext';
+import { buildMessageListData } from '../utils/messageListGrouping';
 
 const GroupChatScreen = ({ route, navigation }) => {
     const { groupId, groupName, members } = route.params;
     const { user } = useAuth();
     const theme = useTheme();
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
+    const dateLocale = i18n.language === 'es' ? es : undefined;
 
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -220,15 +224,52 @@ const GroupChatScreen = ({ route, navigation }) => {
         }
     };
 
-    const renderMessage = ({ item }) => (
-        <MessageBubble
-            message={item}
-            isOwnMessage={item.sender.id === user.id}
-            showSenderName={true}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-        />
-    );
+    const formatDayLabel = (date) => {
+        if (isToday(date)) return t('chat.today');
+        if (isYesterday(date)) return t('chat.yesterday');
+        try {
+            return format(date, 'PPP', { locale: dateLocale });
+        } catch {
+            return '';
+        }
+    };
+
+    const renderItem = ({ item }) => {
+        if (item.type === 'separator') {
+            return (
+                <View style={styles.separatorRow}>
+                    <View
+                        style={[
+                            styles.separatorChip,
+                            { backgroundColor: theme.colors.surfaceVariant }
+                        ]}
+                    >
+                        <Text
+                            style={[
+                                styles.separatorText,
+                                { color: theme.colors.onSurfaceVariant }
+                            ]}
+                        >
+                            {formatDayLabel(item.date)}
+                        </Text>
+                    </View>
+                </View>
+            );
+        }
+
+        return (
+            <MessageBubble
+                message={item.message}
+                isOwnMessage={item.message.sender.id === user.id}
+                // Own messages never show a name; for others, only the run's
+                // first bubble does (WhatsApp/Telegram grouping).
+                showSenderName={item.message.sender.id !== user.id}
+                isRunStart={item.isRunStart}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+            />
+        );
+    };
 
     return (
         <KeyboardAvoidingView
@@ -288,9 +329,9 @@ const GroupChatScreen = ({ route, navigation }) => {
                 ) : (
                     <FlatList
                         ref={flatListRef}
-                        data={messages}
-                        renderItem={renderMessage}
-                        keyExtractor={(item) => item.id?.toString() || item._id?.toString()}
+                        data={buildMessageListData(messages)}
+                        renderItem={renderItem}
+                        keyExtractor={(item) => item.id?.toString()}
                         contentContainerStyle={styles.messagesList}
                         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
                     />
@@ -323,6 +364,19 @@ const styles = StyleSheet.create({
     messagesList: {
         padding: 16,
         paddingBottom: 8
+    },
+    separatorRow: {
+        alignItems: 'center',
+        marginVertical: 8
+    },
+    separatorChip: {
+        paddingHorizontal: 12,
+        paddingVertical: 4,
+        borderRadius: 12
+    },
+    separatorText: {
+        fontSize: 12,
+        fontWeight: '500'
     }
 });
 
