@@ -24,7 +24,7 @@ until they are closed:
 
 | Area | Status |
 |------|--------|
-| **Group messages** | The shipped stable build still treats groups as plaintext. A **draft** group-encryption path exists (`GroupCryptoService`: AES-256-CBC + HMAC-SHA256, key/IVs now from the platform CSPRNG) but is **not yet device-verified** and is a **static symmetric key**: no forward secrecy and no re-key when a member leaves (a removed member who kept the key can still read future traffic). It is **not** Signal "sender keys". Do not rely on it yet. |
+| **Group messages** | Groups are encrypted with `GroupCryptoService` (AES-256-CBC + HMAC-SHA256, key/IVs from the platform CSPRNG). The key is a **static symmetric key between rotations**: removing a member now rotates and re-shares the key with the remaining members, so a removed member's cached key goes stale going forward — but there is still no per-message forward secrecy, and this is **not** Signal "sender keys". Still **not yet fully device-verified** end-to-end (the rotation logic is unit-tested; the pairwise-Signal delivery path is not). The chat UI now shows an explicit encryption badge per conversation instead of implying parity with 1-to-1. |
 | **Metadata** | Not encrypted (who talks to whom, and when, is visible to the server). |
 | **Local token storage** | Being migrated to the OS secure store; older builds kept tokens in plaintext AsyncStorage. |
 | **Server hardening** | Rate limiting, strict CORS, refresh-token revocation and socket input validation are being added. |
