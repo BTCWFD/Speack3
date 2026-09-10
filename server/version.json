@@ -2,5 +2,5 @@
     "versionCode": 3,
     "versionName": "1.2",
     "apkUrl": "https://github.com/BTCWFD/Speack3/releases/download/apk-latest/app-release.apk",
-    "notes": "Nueva pestana Tienda: catalogo, pedidos con hora de entrega y pago (Nequi/cripto/Bre-B)."
+    "notes": "Tienda: domicilio cobrado por distancia, cupos por franja, direccion favorita, QR de pago (Nequi/Bre-B), comprobante de transferencia, pago mixto, aviso de pedido estancado, resenas, pasarela del vendedor rediseñada y APK mas liviano."
 }
