@@ -107,7 +107,7 @@ const SettingsScreen = ({ navigation }) => {
                 <Appbar.Content title={t('settings.title')} />
             </Appbar.Header>
 
-            <ScrollView>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}>
                 <View style={styles.profile}>
                     <Pressable onPress={handlePickPhoto} disabled={uploadingPhoto}>
                         <View>
