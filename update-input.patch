@@ -1,0 +1,114 @@
+--- mobile/src/components/ChatInput.js
++++ mobile/src/components/ChatInput.js
+@@ -9,7 +9,10 @@
+     onTyping,
+     placeholder,
+     editing = null,
+-    onCancelEdit
++    onCancelEdit,
++    onAttachmentPress,
++    onRecordStart,
++    onRecordStop
+ }) => {
+     const [message, setMessage] = useState('');
++    const [isRecording, setIsRecording] = useState(false);
+     const typingTimeoutRef = useRef(null);
+     const { colors } = useTheme();
+     const { t } = useTranslation();
+@@ -70,6 +74,20 @@
+         }
+     };
+ 
++    const handleRecordStart = () => {
++        setIsRecording(true);
++        if (onRecordStart) {
++            onRecordStart();
++        }
++    };
++
++    const handleRecordStop = () => {
++        setIsRecording(false);
++        if (onRecordStop) {
++            onRecordStop();
++        }
++    };
++
+     return (
+         <View
+             style={[
+@@ -109,20 +127,51 @@
+                 </View>
+             )}
+ 
+-            <TextInput
+-                value={message}
+-                onChangeText={handleMessageChange}
+-                placeholder={editing ? t('chatInput.editMessage') : resolvedPlaceholder}
+-                mode="outlined"
+-                multiline
+-                maxLength={1000}
+-                style={[styles.input, { backgroundColor: surface }]}
+-                right={
+-                    <TextInput.Icon
+-                        icon={editing ? 'check' : 'send'}
+-                        disabled={!message.trim()}
+-                        onPress={handleSend}
+-                        color={message.trim() ? colors.primary : colors.onSurfaceDisabled}
+-                    />
+-                }
+-            />
++            <View style={styles.inputRow}>
++                <IconButton
++                    icon="paperclip"
++                    size={24}
++                    onPress={onAttachmentPress}
++                    color={colors.primary}
++                />
++
++                <TextInput
++                    value={isRecording ? 'Grabando audio...' : message}
++                    onChangeText={handleMessageChange}
++                    placeholder={editing ? t('chatInput.editMessage') : resolvedPlaceholder}
++                    mode="outlined"
++                    multiline
++                    maxLength={1000}
++                    disabled={isRecording}
++                    style={[styles.input, { backgroundColor: surface }]}
++                />
++
++                {(message.trim() || editing) ? (
++                    <IconButton
++                        icon={editing ? 'check' : 'send'}
++                        size={24}
++                        onPress={handleSend}
++                        iconColor={colors.primary}
++                    />
++                ) : (
++                    <IconButton
++                        icon="microphone"
++                        size={24}
++                        onPressIn={handleRecordStart}
++                        onPressOut={handleRecordStop}
++                        iconColor={isRecording ? colors.error : colors.primary}
++                    />
++                )}
++            </View>
+         </View>
+     );
+ };
+@@ -134,8 +183,14 @@
+         padding: 8,
+         borderTopWidth: 1
+     },
++    inputRow: {
++        flexDirection: 'row',
++        alignItems: 'flex-end',
++        width: '100%',
++    },
+     input: {
+-        maxHeight: 100
++        flex: 1,
++        maxHeight: 100,
++        marginHorizontal: 4,
++        paddingBottom: 4
+     },

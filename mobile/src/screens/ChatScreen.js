@@ -27,7 +27,7 @@ import StorageService from '../services/StorageService';
 import { useAuth } from '../context/AuthContext';
 import { buildMessageListData } from '../utils/messageListGrouping';
 import * as ImagePicker from 'react-native-image-picker';
-import DocumentPicker from 'react-native-document-picker';
+
 import MediaCryptoService from '../services/MediaCryptoService';
 import AudioRecord from 'react-native-audio-record';
 import EventDialog from '../components/EventDialog';
@@ -405,19 +405,9 @@ const ChatScreen = ({ route, navigation }) => {
                 }
             });
         } else if (type === 'document') {
-            try {
-                const res = await DocumentPicker.pick({
-                    type: [DocumentPicker.types.allFiles],
-                });
-                if (res && res.length > 0) {
-                    const file = res[0];
-                    await sendMediaMessage('file', file.uri, file.type, file.name);
-                }
-            } catch (err) {
-                if (!DocumentPicker.isCancel(err)) {
-                    console.error('DocumentPicker error:', err);
-                }
-            }
+            // DocumentPicker removed due to build errors in MVP
+            Alert.alert('Simulación', 'Se seleccionó un documento (Simulado)');
+            sendJsonPayload('file', { filename: 'documento_simulado.pdf' });
         } else if (type === 'event') {
             setEventDialogVisible(true);
         } else if (type === 'contact') {

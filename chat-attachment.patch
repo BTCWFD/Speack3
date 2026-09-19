@@ -1,0 +1,131 @@
+--- mobile/src/screens/ChatScreen.js
++++ mobile/src/screens/ChatScreen.js
+@@ -19,6 +19,10 @@
+ import StorageService from '../services/StorageService';
+ import { useAuth } from '../context/AuthContext';
+ import { buildMessageListData } from '../utils/messageListGrouping';
++import * as ImagePicker from 'react-native-image-picker';
++import DocumentPicker from 'react-native-document-picker';
++import MediaCryptoService from '../services/MediaCryptoService';
++import AudioRecord from 'react-native-audio-record';
+ 
+ const ChatScreen = ({ route, navigation }) => {
+     const { contactId, contactName, contactOnline } = route.params;
+@@ -34,6 +38,8 @@
+     const [lastSeen, setLastSeen] = useState(null);
+     const [editingMessage, setEditingMessage] = useState(null);
+     const [attachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
++    const [recordingPath, setRecordingPath] = useState('');
++    const [isRecording, setIsRecording] = useState(false);
+ 
+     const flatListRef = useRef(null);
+     const typingTimeoutRef = useRef(null);
+@@ -176,17 +182,109 @@
+         }
+     };
+ 
+-    const handleAttachmentSelect = (type) => {
++    const sendMediaMessage = async (mediaType, uri, mimeType, filename) => {
++        try {
++            // Placeholder message to show uploading
++            const text = JSON.stringify({ __speack3_media: true, type: mediaType, state: 'uploading', filename });
++            const tempId = Date.now().toString();
++            
++            setMessages(prev => [...prev, {
++                id: tempId,
++                sender: { id: user.id, username: user.username },
++                content: text,
++                timestamp: new Date().toISOString(),
++                sending: true
++            }]);
++            
++            // Upload and encrypt
++            const { url, key } = await MediaCryptoService.encryptAndUpload(uri, mimeType);
++            
++            const finalPayload = JSON.stringify({
++                __speack3_media: true,
++                type: mediaType,
++                url,
++                key,
++                mimeType,
++                filename
++            });
++            
++            // Send via socket
++            await SocketService.sendDirectMessage(contactId, finalPayload, tempId);
++            
++            // Update local state
++            setMessages(prev => prev.map(msg => 
++                msg.id === tempId ? { ...msg, content: finalPayload, sending: false, sent: true } : msg
++            ));
++        } catch (error) {
++            console.error('Media upload error:', error);
++            Alert.alert('Error', 'No se pudo enviar el archivo');
++        }
++    };
++
++    const handleAttachmentSelect = async (type) => {
+         setAttachmentMenuVisible(false);
+-        Alert.alert('En desarrollo', `Se seleccionó: ${type}`);
++        
++        if (type === 'gallery' || type === 'camera') {
++            const options = { mediaType: 'mixed', selectionLimit: 1 };
++            const action = type === 'camera' ? ImagePicker.launchCamera : ImagePicker.launchImageLibrary;
++            
++            action(options, async (response) => {
++                if (response.didCancel || response.errorCode) return;
++                if (response.assets && response.assets.length > 0) {
++                    const asset = response.assets[0];
++                    await sendMediaMessage('image', asset.uri, asset.type, asset.fileName || 'image.jpg');
++                }
++            });
++        } else if (type === 'document') {
++            try {
++                const res = await DocumentPicker.pick({
++                    type: [DocumentPicker.types.allFiles],
++                });
++                if (res && res.length > 0) {
++                    const file = res[0];
++                    await sendMediaMessage('file', file.uri, file.type, file.name);
++                }
++            } catch (err) {
++                if (!DocumentPicker.isCancel(err)) {
++                    console.error('DocumentPicker error:', err);
++                }
++            }
++        } else {
++            Alert.alert('En desarrollo', `Se seleccionó: ${type}`);
++        }
+     };
+ 
+     const handleRecordStart = () => {
+         console.log('Iniciando grabación...');
++        setIsRecording(true);
++        AudioRecord.init({
++            sampleRate: 16000,
++            channels: 1,
++            bitsPerSample: 16,
++            audioSource: 6,
++            wavFile: `audio_${Date.now()}.wav`
++        });
++        AudioRecord.start();
+     };
+ 
+-    const handleRecordStop = () => {
++    const handleRecordStop = async () => {
+         console.log('Deteniendo grabación...');
++        setIsRecording(false);
++        try {
++            const audioFile = await AudioRecord.stop();
++            if (audioFile) {
++                // Send the audio file
++                // On iOS audioFile might be an absolute path, we prepend file://
++                const uri = Platform.OS === 'ios' ? (audioFile.startsWith('file://') ? audioFile : `file://${audioFile}`) : `file://${audioFile}`;
++                await sendMediaMessage('audio', uri, 'audio/wav', 'voice_note.wav');
++            }
++        } catch (error) {
++            console.error('Stop recording error:', error);
++        }
+     };
+ 
+     // Build a list that interleaves day-separator items between messages

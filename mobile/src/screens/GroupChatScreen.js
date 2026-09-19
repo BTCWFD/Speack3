@@ -26,7 +26,7 @@ import StorageService from '../services/StorageService';
 import { useAuth } from '../context/AuthContext';
 import { buildMessageListData } from '../utils/messageListGrouping';
 import * as ImagePicker from 'react-native-image-picker';
-import DocumentPicker from 'react-native-document-picker';
+
 import MediaCryptoService from '../services/MediaCryptoService';
 import AudioRecord from 'react-native-audio-record';
 import EventDialog from '../components/EventDialog';
