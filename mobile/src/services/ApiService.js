@@ -668,6 +668,11 @@ class ApiService {
     handleError(error) {
         if (error.response) {
             // Server responded with error
+            if (error.response.data.errors && Array.isArray(error.response.data.errors)) {
+                // Combine express-validator messages
+                const messages = error.response.data.errors.map(e => e.msg).join(', ');
+                return new Error(messages);
+            }
             return new Error(error.response.data.error || 'Server error');
         } else if (error.request) {
             // No response received

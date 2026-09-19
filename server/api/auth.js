@@ -44,6 +44,7 @@ router.post('/register', [
         }
 
         const { username, email, password, identityKeyPublic, registrationId, preKeys, signedPreKey } = req.body;
+        console.log(`[REGISTER] Attempt - username: ${username}, email: ${email}, identityKeyPublic: ${identityKeyPublic ? 'present' : 'MISSING'}, registrationId: ${registrationId}`);
 
         // Check if user exists
         const existingUser = await User.findOne({
@@ -51,6 +52,7 @@ router.post('/register', [
         });
 
         if (existingUser) {
+            console.log(`[REGISTER] User already exists: ${username} / ${email}`);
             return res.status(400).json({ error: 'User already exists' });
         }
 
@@ -64,6 +66,8 @@ router.post('/register', [
             preKeys: preKeys || [],
             signedPreKey
         });
+
+        console.log(`[REGISTER] User created successfully: ${user._id} (${username})`);
 
         // Generate tokens
         const token = generateToken(user._id);
@@ -100,16 +104,21 @@ router.post('/login', [
         }
 
         const { email, password } = req.body;
+        console.log(`[LOGIN] Attempting login for email: ${email}`);
 
         // Find user
         const user = await User.findOne({ email });
 
         if (!user) {
+            console.log(`[LOGIN] No user found for email: ${email}`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        console.log(`[LOGIN] User found: ${user.username}, checking password...`);
+
         // Check password
         const isMatch = await User.comparePassword(password, user.password);
+        console.log(`[LOGIN] Password match: ${isMatch}`);
 
         if (!isMatch) {
             return res.status(401).json({ error: 'Invalid credentials' });

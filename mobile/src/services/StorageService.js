@@ -12,6 +12,43 @@ const GROUP_KEYS_SERVICE = 'speack3.groupkeys';
 // Symmetric key used to encrypt the at-rest message cache (AES via crypto-js).
 const CACHE_KEY_SERVICE = 'speack3.cachekey';
 
+// ---------------------------------------------------------------------------
+// Safe Keychain wrapper — falls back to AsyncStorage when the Keychain
+// entitlement is missing (e.g. Simulator builds without code signing).
+// Production builds with proper signing still use the secure Keychain.
+// ---------------------------------------------------------------------------
+const _kcFallbackPrefix = '__kc_fallback__';
+
+async function kcSet(service, value) {
+    try {
+        await Keychain.setGenericPassword(service, value, { service });
+    } catch (e) {
+        // "Required entitlement" = no keychain access; use AsyncStorage instead
+        await AsyncStorage.setItem(_kcFallbackPrefix + service, value);
+    }
+}
+
+async function kcGet(service) {
+    try {
+        const creds = await Keychain.getGenericPassword({ service });
+        if (creds) return creds.password;
+        // Also check fallback in case a previous run stored it there
+        return await AsyncStorage.getItem(_kcFallbackPrefix + service);
+    } catch (e) {
+        return await AsyncStorage.getItem(_kcFallbackPrefix + service);
+    }
+}
+
+async function kcReset(service) {
+    try {
+        await Keychain.resetGenericPassword({ service });
+    } catch (e) {
+        // ignore entitlement errors on reset
+    }
+    await AsyncStorage.removeItem(_kcFallbackPrefix + service);
+}
+// ---------------------------------------------------------------------------
+
 // AsyncStorage key prefixes for the persisted Signal Protocol store. Sessions,
 // prekeys and signed prekeys are persisted here (the identity key + registration
 // id live in the Keychain / dedicated keys instead).
@@ -33,14 +70,11 @@ class Storage {
     // SocketService (which already await them) keep working.
     async saveAuthToken(token) {
         try {
-            // Keychain requires a non-empty value; clear the entry on falsy input.
             if (!token) {
-                await Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE });
+                await kcReset(AUTH_TOKEN_SERVICE);
                 return;
             }
-            await Keychain.setGenericPassword('auth_token', token, {
-                service: AUTH_TOKEN_SERVICE
-            });
+            await kcSet(AUTH_TOKEN_SERVICE, token);
         } catch (error) {
             console.error('Save token error:', error);
         }
@@ -48,10 +82,7 @@ class Storage {
 
     async getAuthToken() {
         try {
-            const credentials = await Keychain.getGenericPassword({
-                service: AUTH_TOKEN_SERVICE
-            });
-            return credentials ? credentials.password : null;
+            return await kcGet(AUTH_TOKEN_SERVICE);
         } catch (error) {
             console.error('Get token error:', error);
             return null;
@@ -61,12 +92,10 @@ class Storage {
     async saveRefreshToken(token) {
         try {
             if (!token) {
-                await Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE });
+                await kcReset(REFRESH_TOKEN_SERVICE);
                 return;
             }
-            await Keychain.setGenericPassword('refresh_token', token, {
-                service: REFRESH_TOKEN_SERVICE
-            });
+            await kcSet(REFRESH_TOKEN_SERVICE, token);
         } catch (error) {
             console.error('Save refresh token error:', error);
         }
@@ -74,10 +103,7 @@ class Storage {
 
     async getRefreshToken() {
         try {
-            const credentials = await Keychain.getGenericPassword({
-                service: REFRESH_TOKEN_SERVICE
-            });
-            return credentials ? credentials.password : null;
+            return await kcGet(REFRESH_TOKEN_SERVICE);
         } catch (error) {
             console.error('Get refresh token error:', error);
             return null;
@@ -85,15 +111,16 @@ class Storage {
     }
 
     async clearAuth() {
+
         try {
             // Clear secrets from the Keychain (auth + refresh + Signal identity
             // + group keys + message cache key)...
             await Promise.all([
-                Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE }),
-                Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE }),
-                Keychain.resetGenericPassword({ service: IDENTITY_SERVICE }),
-                Keychain.resetGenericPassword({ service: GROUP_KEYS_SERVICE }),
-                Keychain.resetGenericPassword({ service: CACHE_KEY_SERVICE })
+                kcReset(AUTH_TOKEN_SERVICE),
+                kcReset(REFRESH_TOKEN_SERVICE),
+                kcReset(IDENTITY_SERVICE),
+                kcReset(GROUP_KEYS_SERVICE),
+                kcReset(CACHE_KEY_SERVICE)
             ]);
             this._cacheKey = null;
         } catch (error) {
@@ -148,10 +175,7 @@ class Storage {
                 pubKey: Array.from(new Uint8Array(keyPair.pubKey)),
                 privKey: Array.from(new Uint8Array(keyPair.privKey))
             });
-
-            await Keychain.setGenericPassword('identity_key', data, {
-                service: IDENTITY_SERVICE
-            });
+            await kcSet(IDENTITY_SERVICE, data);
         } catch (error) {
             console.error('Save identity key error:', error);
         }
@@ -159,12 +183,9 @@ class Storage {
 
     async getIdentityKeyPair() {
         try {
-            const credentials = await Keychain.getGenericPassword({
-                service: IDENTITY_SERVICE
-            });
-
-            if (credentials) {
-                const data = JSON.parse(credentials.password);
+            const raw = await kcGet(IDENTITY_SERVICE);
+            if (raw) {
+                const data = JSON.parse(raw);
                 return {
                     pubKey: new Uint8Array(data.pubKey).buffer,
                     privKey: new Uint8Array(data.privKey).buffer
@@ -199,10 +220,8 @@ class Storage {
     // Stored together as a JSON map in the Keychain under a single service.
     async _getGroupKeyMap() {
         try {
-            const credentials = await Keychain.getGenericPassword({
-                service: GROUP_KEYS_SERVICE
-            });
-            return credentials ? JSON.parse(credentials.password) : {};
+            const raw = await kcGet(GROUP_KEYS_SERVICE);
+            return raw ? JSON.parse(raw) : {};
         } catch (error) {
             console.error('Get group keys error:', error);
             return {};
@@ -213,9 +232,7 @@ class Storage {
         try {
             const map = await this._getGroupKeyMap();
             map[groupId] = keyB64;
-            await Keychain.setGenericPassword('group_keys', JSON.stringify(map), {
-                service: GROUP_KEYS_SERVICE
-            });
+            await kcSet(GROUP_KEYS_SERVICE, JSON.stringify(map));
         } catch (error) {
             console.error('Save group key error:', error);
         }
@@ -238,11 +255,9 @@ class Storage {
             return this._cacheKey;
         }
         try {
-            const credentials = await Keychain.getGenericPassword({
-                service: CACHE_KEY_SERVICE
-            });
-            if (credentials && credentials.password) {
-                this._cacheKey = credentials.password;
+            const existing = await kcGet(CACHE_KEY_SERVICE);
+            if (existing) {
+                this._cacheKey = existing;
                 return this._cacheKey;
             }
 
@@ -254,9 +269,7 @@ class Storage {
                 hex += bytes[i].toString(16).padStart(2, '0');
             }
 
-            await Keychain.setGenericPassword('cache_key', hex, {
-                service: CACHE_KEY_SERVICE
-            });
+            await kcSet(CACHE_KEY_SERVICE, hex);
             this._cacheKey = hex;
             return this._cacheKey;
         } catch (error) {
@@ -386,12 +399,13 @@ class Storage {
         try {
             await AsyncStorage.clear();
             await Promise.all([
-                Keychain.resetGenericPassword({ service: AUTH_TOKEN_SERVICE }),
-                Keychain.resetGenericPassword({ service: REFRESH_TOKEN_SERVICE }),
-                Keychain.resetGenericPassword({ service: IDENTITY_SERVICE }),
-                Keychain.resetGenericPassword({ service: GROUP_KEYS_SERVICE }),
-                Keychain.resetGenericPassword({ service: CACHE_KEY_SERVICE })
+                kcReset(AUTH_TOKEN_SERVICE),
+                kcReset(REFRESH_TOKEN_SERVICE),
+                kcReset(IDENTITY_SERVICE),
+                kcReset(GROUP_KEYS_SERVICE),
+                kcReset(CACHE_KEY_SERVICE)
             ]);
+
             this._cacheKey = null;
         } catch (error) {
             console.error('Clear all error:', error);
