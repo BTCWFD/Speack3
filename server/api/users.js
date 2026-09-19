@@ -153,6 +153,31 @@ router.get('/:id/prekeys', auth, async (req, res) => {
 // @route   POST /api/users/prekeys
 // @desc    Upload new prekeys
 // @access  Private
+// @route   PUT /api/users/keys
+// @desc    Update user's entire identity and prekeys (on login after reinstall)
+// @access  Private
+router.put('/keys', auth, async (req, res) => {
+    try {
+        const { identityKeyPublic, registrationId, preKeys, signedPreKey } = req.body;
+        if (!identityKeyPublic || !registrationId || !signedPreKey) {
+            return res.status(400).json({ error: 'Missing required keys' });
+        }
+        await User.findByIdAndUpdate(req.userId, {
+            $set: {
+                identityKeyPublic,
+                registrationId,
+                preKeys: preKeys || [],
+                signedPreKey
+            }
+        });
+        res.json({ message: 'Keys updated successfully' });
+    } catch (error) {
+        console.error('Update keys error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+
 router.post('/prekeys', auth, async (req, res) => {
     try {
         const { preKeys } = req.body;

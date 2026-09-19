@@ -112,6 +112,12 @@ export const AuthProvider = ({ children }) => {
 
             // Initialize Signal Protocol
             await SignalService.initialize(response.user.id);
+            const identityKeyPublic = await SignalService.getPublicIdentityKey();
+            const registrationId = SignalService.registrationId;
+            const preKeys = await SignalService.generatePreKeys(100);
+            const signedPreKey = await SignalService.generateSignedPreKey();
+            await ApiService.updateKeys({ identityKeyPublic, registrationId, preKeys, signedPreKey });
+
 
             // Connect to WebSocket
             await SocketService.connect();

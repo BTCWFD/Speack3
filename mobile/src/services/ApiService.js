@@ -58,6 +58,15 @@ class ApiService {
         }
     }
 
+    async updateKeys(keys) {
+        try {
+            const response = await this.client.put('/api/users/keys', keys);
+            return response.data;
+        } catch (error) {
+            throw this.handleError(error);
+        }
+    }
+
     async login(email, password) {
         try {
             const response = await this.client.post('/api/auth/login', { email, password });
