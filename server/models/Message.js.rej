@@ -1,0 +1,8 @@
+@@ -10,6 +10,7 @@
+         this.readAt = data.readAt || null;
+         this.edited = data.edited || false;
+         this.editedAt = data.editedAt || null;
+         this.deleted = data.deleted || false;
++        this.pinned = data.pinned || false;
+         this.createdAt = data.createdAt || new Date();
+     }

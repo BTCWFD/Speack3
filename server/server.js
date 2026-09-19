@@ -1,5 +1,7 @@
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
+
 const http = require('http');
 const { Server } = require('socket.io');
 // Data layer: MongoDB when MONGODB_URI is set, NeDB file store otherwise
@@ -23,6 +25,8 @@ const notificationRoutes = require('./api/notifications');
 const payoutRoutes = require('./api/payoutMethods');
 const shopRoutes = require('./api/shop');
 const donationRoutes = require('./api/donations');
+const mediaRoutes = require('./api/media');
+
 
 // Import socket handlers
 const setupSocketHandlers = require('./sockets/messageHandler');
@@ -149,6 +153,9 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/payout-methods', payoutRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/donations', donationRoutes);
+app.use('/api/media', mediaRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 // 404 handler
 app.use((req, res) => {

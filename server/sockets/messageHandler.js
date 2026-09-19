@@ -377,6 +377,50 @@ const setupSocketHandlers = (io) => {
         });
 
         // Handle message delete (soft-delete)
+        // Handle message pin / unpin
+        socket.on('message:pin', async (data) => {
+            try {
+                const { messageId, pinned } = data || {};
+
+                if (!isNonEmptyString(messageId)) {
+                    return socket.emit('message:error', { error: 'Invalid message payload' });
+                }
+
+                const message = await Message.findById(messageId);
+                if (!message) {
+                    return socket.emit('message:error', { error: 'Message not found' });
+                }
+
+                await Message.findByIdAndUpdate(messageId, {
+                    $set: { pinned: !!pinned }
+                });
+
+                const payload = {
+                    messageId,
+                    pinned: !!pinned,
+                    messageType: message.messageType
+                };
+
+                if (message.messageType === 'group') {
+                    const group = await Group.findById(message.group);
+                    payload.groupId = message.group.toString();
+                    if (group) {
+                        group.members.forEach(memberId => {
+                            io.to(`user:${memberId.toString()}`).emit('message:pinned', payload);
+                        });
+                    }
+                } else {
+                    io.to(`user:${message.recipient.toString()}`).emit('message:pinned', payload);
+                    io.to(`user:${message.sender.toString()}`).emit('message:pinned', payload);
+                }
+            } catch (error) {
+                console.error('Message pin error:', error);
+                socket.emit('message:error', {
+                    error: 'Failed to pin message'
+                });
+            }
+        });
+
         socket.on('message:delete', async (data) => {
             try {
                 const { messageId } = data || {};
