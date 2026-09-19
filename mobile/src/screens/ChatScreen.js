@@ -14,7 +14,7 @@ import {
     TouchableRipple,
     useTheme
 } from 'react-native-paper';
-import { formatDistanceToNow, isToday, isYesterday, isSameDay, format } from 'date-fns';
+import { formatDistanceToNow, isToday, isYesterday, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
 import StorageService from '../services/StorageService';
 import { useAuth } from '../context/AuthContext';
+import { buildMessageListData } from '../utils/messageListGrouping';
 
 const ChatScreen = ({ route, navigation }) => {
     const { contactId, contactName, contactOnline } = route.params;
@@ -327,26 +328,9 @@ const ChatScreen = ({ route, navigation }) => {
         }
     };
 
-    // Build a list that interleaves day-separator items between messages.
-    const buildListData = () => {
-        const data = [];
-        let prevDate = null;
-        messages.forEach((msg) => {
-            const ts = msg.timestamp;
-            const d = ts ? new Date(ts) : null;
-            const valid = d && !isNaN(d.getTime());
-            if (valid && (!prevDate || !isSameDay(d, prevDate))) {
-                data.push({
-                    type: 'separator',
-                    id: `sep-${d.toDateString()}`,
-                    date: d
-                });
-                prevDate = d;
-            }
-            data.push({ type: 'message', id: msg.id ?? msg._id, message: msg });
-        });
-        return data;
-    };
+    // Build a list that interleaves day-separator items between messages
+    // (and marks consecutive same-sender runs) — shared with GroupChatScreen.
+    const buildListData = () => buildMessageListData(messages);
 
     const formatDayLabel = (date) => {
         if (isToday(date)) return t('chat.today');
@@ -385,6 +369,7 @@ const ChatScreen = ({ route, navigation }) => {
             <MessageBubble
                 message={item.message}
                 isOwnMessage={item.message.sender.id === user.id}
+                isRunStart={item.isRunStart}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
             />
@@ -427,6 +412,17 @@ const ChatScreen = ({ route, navigation }) => {
                         subtitle={getSubtitle()}
                     />
                 </TouchableRipple>
+                <Appbar.Action
+                    icon="shield-check"
+                    color={theme.colors.primary}
+                    onPress={() =>
+                        Alert.alert(
+                            t('chat.encryptionBadgeTitle'),
+                            t('chat.encryptionBadgeBody', { name: contactName }),
+                            [{ text: t('common.ok') }]
+                        )
+                    }
+                />
             </Appbar.Header>
 
             <View style={styles.messagesContainer}>

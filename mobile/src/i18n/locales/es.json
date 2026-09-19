@@ -70,7 +70,9 @@
     "today": "Hoy",
     "yesterday": "Ayer",
     "deleteTitle": "Eliminar mensaje",
-    "deleteConfirm": "¿Seguro que quieres eliminar este mensaje?"
+    "deleteConfirm": "¿Seguro que quieres eliminar este mensaje?",
+    "encryptionBadgeTitle": "Cifrado de extremo a extremo",
+    "encryptionBadgeBody": "Los mensajes con {{name}} están cifrados con el Signal Protocol (X3DH + Double Ratchet). Cada mensaje usa claves efímeras; ni el servidor ni terceros pueden leerlos."
   },
   "group": {
     "members": "{{count}} miembros",
@@ -102,6 +104,8 @@
     "couldNotDelete": "No se pudo eliminar el grupo",
     "couldNotLoad": "No se pudo cargar el grupo",
     "noUsersToAdd": "No hay usuarios para añadir",
+    "encryptionBadgeTitle": "Cifrado de grupo",
+    "encryptionBadgeBody": "Este grupo usa una clave compartida (AES-256 + HMAC-SHA256) que solo conocen sus miembros; el servidor solo relaya el cifrado. La clave se renueva y se reparte de nuevo automáticamente al quitar a alguien del grupo. Aún no tiene secreto hacia adelante por mensaje: no es lo mismo que las \"Sender Keys\" de Signal.",
     "addCount": "Añadir ({{count}})",
     "unknown": "Desconocido"
   },

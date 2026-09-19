@@ -70,7 +70,9 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "deleteTitle": "Delete message",
-    "deleteConfirm": "Are you sure you want to delete this message?"
+    "deleteConfirm": "Are you sure you want to delete this message?",
+    "encryptionBadgeTitle": "End-to-end encryption",
+    "encryptionBadgeBody": "Messages with {{name}} are encrypted with the Signal Protocol (X3DH + Double Ratchet). Each message uses ephemeral keys; neither the server nor third parties can read them."
   },
   "group": {
     "members": "{{count}} members",
@@ -102,6 +104,8 @@
     "couldNotDelete": "Could not delete group",
     "couldNotLoad": "Could not load group",
     "noUsersToAdd": "No users to add",
+    "encryptionBadgeTitle": "Group encryption",
+    "encryptionBadgeBody": "This group uses a shared key (AES-256 + HMAC-SHA256) known only to its members; the server only relays ciphertext. The key is regenerated and re-shared automatically whenever someone is removed from the group. It does not yet have per-message forward secrecy: this is not the same as Signal's \"Sender Keys\".",
     "addCount": "Add ({{count}})",
     "unknown": "Unknown"
   },
