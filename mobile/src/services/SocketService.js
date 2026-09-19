@@ -12,7 +12,7 @@ class SocketService {
         this.messageHandlers = new Set();
         this.statusHandlers = new Set();
         this.editedHandlers = new Set();
-        this.deletedHandlers = new Set();
+        this.deletedHandlers = new Set();        this.pinnedHandlers = new Set();
         // Guards flushQueue() against overlapping/re-entrant runs.
         this._flushing = false;
     }
@@ -541,6 +541,11 @@ class SocketService {
     onMessageDeleted(handler) {
         this.deletedHandlers.add(handler);
         return () => this.deletedHandlers.delete(handler);
+    }
+
+    onMessagePinned(handler) {
+        this.pinnedHandlers.add(handler);
+        return () => this.pinnedHandlers.delete(handler);
     }
 
     // Notify message handlers

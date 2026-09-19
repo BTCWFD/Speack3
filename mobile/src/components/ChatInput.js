@@ -8,9 +8,13 @@ const ChatInput = ({
     onTyping,
     placeholder,
     editing = null,
-    onCancelEdit
+    onCancelEdit,
+    onAttachmentPress,
+    onRecordStart,
+    onRecordStop
 }) => {
     const [message, setMessage] = useState('');
+    const [isRecording, setIsRecording] = useState(false);
     const typingTimeoutRef = useRef(null);
     const { colors } = useTheme();
     const { t } = useTranslation();
@@ -70,6 +74,16 @@ const ChatInput = ({
         }
     };
 
+    const handleRecordStart = () => {
+        setIsRecording(true);
+        if (onRecordStart) onRecordStart();
+    };
+
+    const handleRecordStop = () => {
+        setIsRecording(false);
+        if (onRecordStop) onRecordStop();
+    };
+
     return (
         <View
             style={[
@@ -109,23 +123,42 @@ const ChatInput = ({
                 </View>
             )}
 
-            <TextInput
-                value={message}
-                onChangeText={handleMessageChange}
-                placeholder={editing ? t('chatInput.editMessage') : resolvedPlaceholder}
-                mode="outlined"
-                multiline
-                maxLength={1000}
-                style={[styles.input, { backgroundColor: surface }]}
-                right={
-                    <TextInput.Icon
+            <View style={styles.inputRow}>
+                <IconButton
+                    icon="paperclip"
+                    size={24}
+                    onPress={onAttachmentPress}
+                    iconColor={colors.primary}
+                />
+
+                <TextInput
+                    value={isRecording ? 'Grabando audio...' : message}
+                    onChangeText={handleMessageChange}
+                    placeholder={editing ? t('chatInput.editMessage') : resolvedPlaceholder}
+                    mode="outlined"
+                    multiline
+                    maxLength={1000}
+                    disabled={isRecording}
+                    style={[styles.input, { backgroundColor: surface }]}
+                />
+
+                {(message.trim() || editing) ? (
+                    <IconButton
                         icon={editing ? 'check' : 'send'}
-                        disabled={!message.trim()}
+                        size={24}
                         onPress={handleSend}
-                        color={message.trim() ? colors.primary : colors.onSurfaceDisabled}
+                        iconColor={colors.primary}
                     />
-                }
-            />
+                ) : (
+                    <IconButton
+                        icon="microphone"
+                        size={24}
+                        onPressIn={handleRecordStart}
+                        onPressOut={handleRecordStop}
+                        iconColor={isRecording ? colors.error : colors.primary}
+                    />
+                )}
+            </View>
         </View>
     );
 };
@@ -135,8 +168,16 @@ const styles = StyleSheet.create({
         padding: 8,
         borderTopWidth: 1
     },
+    inputRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        width: '100%',
+    },
     input: {
-        maxHeight: 100
+        flex: 1,
+        maxHeight: 100,
+        marginHorizontal: 4,
+        paddingBottom: 4
     },
     editBanner: {
         flexDirection: 'row',

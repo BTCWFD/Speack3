@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, Image, TouchableOpacity, Linking } from 'react-native';
 import { Surface, Text, Menu, useTheme } from 'react-native-paper';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
@@ -21,12 +21,24 @@ const MessageBubble = ({
     // name/avatar on every single one.
     isRunStart = true,
     onEdit,
-    onDelete
+    onDelete,
+    onPin
 }) => {
     const [menuVisible, setMenuVisible] = useState(false);
+    const [decryptedMediaUrl, setDecryptedMediaUrl] = useState(null);
+    const [mediaError, setMediaError] = useState(false);
     const theme = useTheme();
     const { t } = useTranslation();
     const { colors } = theme;
+    
+    let isMedia = false;
+    let mediaData = null;
+    try {
+        if (message.content && message.content.startsWith('{"__speack3_media"')) {
+            mediaData = JSON.parse(message.content);
+            isMedia = true;
+        }
+    } catch (e) {}
 
     // Theme-aware colors: own bubble uses primary, other uses an elevated surface.
     const otherBubbleColor =
@@ -84,6 +96,65 @@ const MessageBubble = ({
             );
         }
 
+        if (isMedia && mediaData) {
+            const { type, state, filename } = mediaData;
+            
+            if (state === 'uploading') {
+                return (
+                    <View style={styles.mediaContainer}>
+                        <Icon name="cloud-upload" size={32} color={textColor} />
+                        <Text style={[styles.messageText, { color: textColor, marginTop: 4 }]}>Subiendo {filename}...</Text>
+                    </View>
+                );
+            }
+
+            if (type === 'image') {
+                // For MVP, we render a placeholder since real decryption requires downloading
+                return (
+                    <View style={styles.mediaContainer}>
+                        <Icon name="image" size={48} color={textColor} />
+                        <Text style={[styles.messageText, { color: textColor, fontSize: 12 }]}>{filename}</Text>
+                        <Text style={[styles.messageText, { color: textColor, fontSize: 10, marginTop: 4 }]}>(Imagen Encriptada)</Text>
+                    </View>
+                );
+            } else if (type === 'audio') {
+                return (
+                    <View style={styles.mediaContainerRow}>
+                        <Icon name="play-circle" size={36} color={textColor} />
+                        <Text style={[styles.messageText, { color: textColor, marginLeft: 8 }]}>Audio / Nota de voz</Text>
+                    </View>
+                );
+            } else if (type === 'file') {
+                return (
+                    <View style={styles.mediaContainerRow}>
+                        <Icon name="file-document" size={36} color={textColor} />
+                        <Text style={[styles.messageText, { color: textColor, marginLeft: 8 }]}>{filename}</Text>
+                    </View>
+                );
+            } else if (type === 'event') {
+                const { eventTitle, eventDate, eventTime } = mediaData;
+                return (
+                    <View style={[styles.mediaContainer, { backgroundColor: theme.colors.surfaceVariant, borderRadius: 12, minWidth: 200, padding: 16 }]}>
+                        <Icon name="calendar-clock" size={48} color={theme.colors.primary} />
+                        <Text style={{ fontSize: 16, fontWeight: 'bold', marginTop: 8, color: textColor }}>{eventTitle}</Text>
+                        <Text style={{ fontSize: 14, marginTop: 4, color: textColor }}>📅 {eventDate}</Text>
+                        {eventTime ? <Text style={{ fontSize: 14, marginTop: 4, color: textColor }}>⏰ {eventTime}</Text> : null}
+                    </View>
+                );
+            } else if (type === 'contact') {
+                const { contactName, contactUsername } = mediaData;
+                return (
+                    <View style={styles.mediaContainerRow}>
+                        <Icon name="account-circle" size={48} color={theme.colors.primary} />
+                        <View style={{ marginLeft: 12 }}>
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: textColor }}>{contactName}</Text>
+                            <Text style={{ fontSize: 14, color: textColor }}>@{contactUsername}</Text>
+                        </View>
+                    </View>
+                );
+            }
+        }
+
         return (
             <Text style={[styles.messageText, { color: textColor }]}>
                 {message.content}
@@ -125,6 +196,9 @@ const MessageBubble = ({
                             {renderBody()}
 
                             <View style={styles.metadata}>
+                                {message.pinned && (
+                                    <Icon name="pin" size={14} color={theme.colors.error} style={{ marginRight: 4 }} />
+                                )}
                                 {message.edited && !message.deleted && (
                                     <Text style={[
                                         styles.editedText,
@@ -172,6 +246,16 @@ const MessageBubble = ({
                         }}
                         title={t('message.delete')}
                         leadingIcon="delete"
+                    />
+                )}
+                {onPin && !message.deleted && (
+                    <Menu.Item
+                        onPress={() => {
+                            closeMenu();
+                            onPin(message);
+                        }}
+                        title={message.pinned ? 'Desfijar mensaje' : 'Fijar mensaje'}
+                        leadingIcon={message.pinned ? 'pin-off' : 'pin'}
                     />
                 )}
             </Menu>
@@ -238,6 +322,19 @@ const styles = StyleSheet.create({
     },
     statusIcon: {
         marginLeft: 4
+    },
+    mediaContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 8,
+        minWidth: 120,
+        minHeight: 120,
+    },
+    mediaContainerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 8,
+        minWidth: 150,
     }
 });
 

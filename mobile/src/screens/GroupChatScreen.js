@@ -19,11 +19,17 @@ import { es } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
+import AttachmentMenu from '../components/AttachmentMenu';
 import ApiService from '../services/ApiService';
 import SocketService from '../services/SocketService';
 import StorageService from '../services/StorageService';
 import { useAuth } from '../context/AuthContext';
 import { buildMessageListData } from '../utils/messageListGrouping';
+import * as ImagePicker from 'react-native-image-picker';
+import DocumentPicker from 'react-native-document-picker';
+import MediaCryptoService from '../services/MediaCryptoService';
+import AudioRecord from 'react-native-audio-record';
+import EventDialog from '../components/EventDialog';
 
 const GroupChatScreen = ({ route, navigation }) => {
     const { groupId, groupName, members } = route.params;
@@ -36,6 +42,8 @@ const GroupChatScreen = ({ route, navigation }) => {
     const [loading, setLoading] = useState(true);
     const [menuVisible, setMenuVisible] = useState(false);
     const [editingMessage, setEditingMessage] = useState(null);
+    const [attachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
+
 
     const flatListRef = useRef(null);
 
@@ -149,6 +157,12 @@ const GroupChatScreen = ({ route, navigation }) => {
             edited: true,
             editedAt: data.editedAt
         }));
+    };
+
+    const handleMessagePinned = (data) => {
+        setMessages(prev => prev.map(msg => 
+            msg.id === data.messageId ? { ...msg, pinned: data.pinned } : msg
+        ));
     };
 
     const handleMessageDeleted = (data) => {
@@ -323,6 +337,18 @@ const GroupChatScreen = ({ route, navigation }) => {
                 </Menu>
             </Appbar.Header>
 
+            {pinnedMessage && (
+                <View style={[styles.pinnedBanner, { backgroundColor: theme.colors.surfaceVariant, borderLeftColor: theme.colors.primary }]}>
+                    <Icon name="pin" size={20} color={theme.colors.primary} />
+                    <View style={{ marginLeft: 8, flex: 1 }}>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.colors.primary }}>Mensaje fijado</Text>
+                        <Text numberOfLines={1} style={{ fontSize: 13, color: theme.colors.onSurfaceVariant }}>
+                            {pinnedMessage.content?.includes('__speack3_media') ? 'Multimedia adjunta' : pinnedMessage.content}
+                        </Text>
+                    </View>
+                </View>
+            )}
+
             <View style={styles.messagesContainer}>
                 {loading ? (
                     <View style={styles.loadingContainer}>
@@ -340,11 +366,25 @@ const GroupChatScreen = ({ route, navigation }) => {
                 )}
             </View>
 
+            <AttachmentMenu 
+                visible={attachmentMenuVisible} 
+                onSelect={handleAttachmentSelect} 
+            />
+
+            <EventDialog 
+                visible={eventDialogVisible}
+                onDismiss={() => setEventDialogVisible(false)}
+                onSubmit={(eventData) => sendJsonPayload('event', { eventTitle: eventData.title, eventDate: eventData.date, eventTime: eventData.time })}
+            />
             <ChatInput
                 onSend={editingMessage ? submitEdit : sendMessage}
                 placeholder={t('group.messagePlaceholder', { name: groupName })}
                 editing={editingMessage}
                 onCancelEdit={() => setEditingMessage(null)}
+                onAttachmentPress={() => setAttachmentMenuVisible(!attachmentMenuVisible)}
+                onRecordStart={handleRecordStart}
+                onRecordStop={handleRecordStop}
+
             />
         </KeyboardAvoidingView>
     );
