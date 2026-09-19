@@ -58,8 +58,10 @@ const GroupChatScreen = ({ route, navigation }) => {
 
     const loadMessages = async () => {
         try {
-            const serverMessages = await ApiService.getGroupMessages(groupId);
-            setMessages(serverMessages);
+            const cachedMessages = await StorageService.getMessages(groupId);
+            if (cachedMessages.length > 0) {
+                setMessages(cachedMessages);
+            }
         } catch (error) {
             console.error('Load group messages error:', error);
         } finally {

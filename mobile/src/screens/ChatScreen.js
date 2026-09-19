@@ -78,16 +78,11 @@ const ChatScreen = ({ route, navigation }) => {
 
     const loadMessages = async () => {
         try {
-            // Load from local cache first
+            // Load from local cache
             const cachedMessages = await StorageService.getMessages(contactId);
             if (cachedMessages.length > 0) {
                 setMessages(cachedMessages);
-                setLoading(false);
             }
-
-            // Fetch from server
-            const serverMessages = await ApiService.getDirectMessages(contactId);
-            setMessages(serverMessages);
         } catch (error) {
             console.error('Load messages error:', error);
         } finally {
